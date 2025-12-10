@@ -1,0 +1,205 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { createTask, getTasks, applyForTask as apiApply, assignTask as apiAssign, completeTask as apiComplete, addTaskMessage as apiAddTaskMessage } from '../api/tasks';
+import { getTransactions, depositCoins as apiDeposit, withdrawCoins as apiWithdraw } from '../api/transactions';
+
+const DataContext = createContext();
+
+export const useData = () => useContext(DataContext);
+
+export const DataProvider = ({ children }) => {
+    const { currentUser, refreshProfile } = useAuth();
+    const [tasks, setTasks] = useState([]);
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [tasksData, txsData] = await Promise.all([
+                    getTasks(),
+                    currentUser ? getTransactions() : Promise.resolve([])
+                ]);
+                setTasks(tasksData);
+                setTransactions(txsData);
+            } catch (error) {
+                console.error("Failed to fetch data", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [currentUser]);
+
+    const postTask = async (taskData) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            const newTask = await createTask(taskData);
+            setTasks(prev => [newTask, ...prev]);
+
+            // Refresh transactions to show escrow lock
+            const txs = await getTransactions();
+            setTransactions(txs);
+
+            // Refresh user profile to get updated coins/xp
+            if (refreshProfile) {
+                await refreshProfile();
+            }
+
+            return newTask;
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to post task";
+        }
+    };
+
+    const applyForTask = async (taskId) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            const updatedTask = await apiApply(taskId);
+            setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to apply";
+        }
+    };
+
+    const assignTask = async (taskId, applicantId) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            const updatedTask = await apiAssign(taskId, applicantId);
+            setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to assign";
+        }
+    };
+
+    const completeTask = async (taskId) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            const updatedTask = await apiComplete(taskId);
+            setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+
+            // Refresh transactions
+            const txs = await getTransactions();
+            setTransactions(txs);
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to complete task";
+        }
+    };
+
+    const addChatMessage = async (taskId, text) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            // We don't need to update state here because TaskDetailModal fetches its own data
+            // But if we wanted to update the global tasks list:
+            // const updatedTask = await apiAddTaskMessage(taskId, text);
+            // setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+
+            // However, since we are using a separate API call in the component for real-time-ish updates,
+            // we can just return the promise.
+            // Wait, actually TaskDetailModal calls this. Let's make it return the updated task.
+
+            const updatedTask = await apiAddTaskMessage(taskId, text);
+            setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+            return updatedTask;
+        } catch (error) {
+            console.error("Failed to send message", error);
+            throw error;
+        }
+    };
+
+    const depositCoins = async (amount) => {
+        if (!currentUser) return;
+
+        // Optimistic update
+        const tempTx = {
+            _id: 'temp-' + Date.now(),
+            user: currentUser._id,
+            type: 'deposit',
+            amount: Number(amount),
+            description: 'Deposit',
+            createdAt: new Date().toISOString()
+        };
+        setTransactions(prev => [tempTx, ...prev]);
+
+        try {
+            await apiDeposit(amount);
+
+            // Background refresh
+            (async () => {
+                try {
+                    if (refreshProfile) await refreshProfile();
+                    // Small delay for DB consistency
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const txs = await getTransactions();
+                    setTransactions(txs);
+                } catch (err) {
+                    console.error("Background refresh failed", err);
+                }
+            })();
+
+            return amount;
+        } catch (error) {
+            console.error("Deposit failed", error);
+            // Rollback on error
+            setTransactions(prev => prev.filter(t => t._id !== tempTx._id));
+            throw error;
+        }
+    };
+
+    const withdrawCoins = async (amount) => {
+        if (!currentUser) return;
+
+        // Optimistic update
+        const tempTx = {
+            _id: 'temp-' + Date.now(),
+            user: currentUser._id,
+            type: 'withdraw',
+            amount: Number(amount),
+            description: 'Withdraw',
+            createdAt: new Date().toISOString()
+        };
+        setTransactions(prev => [tempTx, ...prev]);
+
+        try {
+            await apiWithdraw(amount);
+
+            // Background refresh
+            (async () => {
+                try {
+                    if (refreshProfile) await refreshProfile();
+                    // Small delay for DB consistency
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const txs = await getTransactions();
+                    setTransactions(txs);
+                } catch (err) {
+                    console.error("Background refresh failed", err);
+                }
+            })();
+
+            return amount;
+        } catch (error) {
+            console.error("Withdraw failed", error);
+            // Rollback on error
+            setTransactions(prev => prev.filter(t => t._id !== tempTx._id));
+            throw error.response?.data?.message || "Withdraw failed";
+        }
+    };
+
+    return (
+        <DataContext.Provider value={{
+            tasks,
+            transactions,
+            postTask,
+            applyForTask,
+            assignTask,
+            completeTask,
+            addChatMessage,
+            depositCoins,
+            withdrawCoins,
+            loading
+        }}>
+            {children}
+        </DataContext.Provider>
+    );
+};
