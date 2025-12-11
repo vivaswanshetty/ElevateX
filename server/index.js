@@ -43,10 +43,24 @@ app.use(helmet({
 // CORS configuration
 // CORS configuration
 const corsOptions = {
-    origin: [
-        process.env.FRONTEND_URL || 'http://localhost:5173',
-        'http://localhost:5174'
-    ],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Allow localhost for development
+        if (origin.includes('localhost')) return callback(null, true);
+
+        // Allow any Vercel deployment
+        if (origin.endsWith('.vercel.app')) return callback(null, true);
+
+        // Allow explicit FRONTEND_URL if set
+        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+            return callback(null, true);
+        }
+
+        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+        return callback(new Error(msg), false);
+    },
     credentials: true,
     optionsSuccessStatus: 200,
 };
