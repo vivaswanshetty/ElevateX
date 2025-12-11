@@ -31,6 +31,9 @@ connectDB().then(() => {
 
 const app = express();
 
+// Enable trust proxy for Render/Vercel (required for rate limiting behind a proxy)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: false, // Disable for development; configure properly for production

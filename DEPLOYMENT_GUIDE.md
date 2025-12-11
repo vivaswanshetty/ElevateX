@@ -59,6 +59,17 @@ Ensure your latest code is pushed to your GitHub repository.
 6.  Click **Create Web Service**.
 7.  Wait for the deployment to finish. You will see a URL at the top like `https://elevatex-api.onrender.com`. **Copy this URL**.
 
+## Troubleshooting Deployment
+
+### Error: `querySrv ENOTFOUND _mongodb._tcp.17` (or similar)
+This means your `MONGO_URI` is malformed.
+*   **Cause 1 (Most Likely):** You included the port number (`:27017`) in a `mongodb+srv://` URL.
+    *   *Fix:* Remove `:27017` from the string. `mongodb+srv` URLs **cannot** have port numbers.
+*   **Cause 2:** Your password contains special characters like `@` or `:`.
+    *   *Fix:* Change your database password to only letters and numbers, then update the variable.
+*   **Cause 3:** You are trying to use `localhost`.
+    *   *Fix:* You must use the MongoDB Atlas URL (starting with `mongodb+srv://`), not a local one.
+
 ## Phase 4: Frontend Deployment (Vercel)
 
 1.  Sign up/Login to [Vercel](https://vercel.com).
