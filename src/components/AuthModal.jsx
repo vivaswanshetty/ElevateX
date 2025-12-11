@@ -232,7 +232,7 @@ const AuthModal = ({ isOpen, onClose }) => {
                                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
-                                {!isLogin && password && (
+                                {!isLogin && (
                                     <div className="mt-2 ml-1 space-y-1">
                                         <div className="flex items-center gap-2 text-xs">
                                             <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 6 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
@@ -259,11 +259,6 @@ const AuthModal = ({ isOpen, onClose }) => {
                                             </span>
                                         </div>
                                     </div>
-                                )}
-                                {!isLogin && !password && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1">
-                                        Must be at least 6 characters with uppercase, lowercase, and a number
-                                    </p>
                                 )}
                             </div>
 

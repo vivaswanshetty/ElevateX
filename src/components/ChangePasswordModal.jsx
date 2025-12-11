@@ -38,6 +38,11 @@ const ChangePasswordModal = ({ isOpen, onClose, onConfirm, loading }) => {
             return;
         }
 
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+            setError('New password must contain at least one uppercase letter, one lowercase letter, and one number');
+            return;
+        }
+
         if (newPassword !== confirmPassword) {
             setError('New passwords do not match');
             return;
@@ -150,7 +155,32 @@ const ChangePasswordModal = ({ isOpen, onClose, onConfirm, loading }) => {
                                                 {showNew ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                             </button>
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Must be at least 6 characters</p>
+                                        <div className="mt-2 ml-1 space-y-1">
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${newPassword.length >= 6 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                                <span className={newPassword.length >= 6 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                                    At least 6 characters
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                                <span className={/[A-Z]/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                                    One uppercase letter
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                                <span className={/[a-z]/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                                    One lowercase letter
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${/\d/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                                <span className={/\d/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                                    One number
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>

@@ -177,9 +177,32 @@ const ResetPassword = () => {
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Must be at least 6 characters with uppercase, lowercase, and a number
-                            </p>
+                            <div className="mt-2 ml-1 space-y-1">
+                                <div className="flex items-center gap-2 text-xs">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 6 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <span className={password.length >= 6 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                        At least 6 characters
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(password) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <span className={/[A-Z]/.test(password) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                        One uppercase letter
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(password) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <span className={/[a-z]/.test(password) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                        One lowercase letter
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${/\d/.test(password) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <span className={/\d/.test(password) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
+                                        One number
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Confirm Password Input */}
