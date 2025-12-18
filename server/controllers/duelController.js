@@ -5,14 +5,38 @@ const { createActivity } = require('./activityController');
 // Create a new duel request
 exports.createDuel = async (req, res) => {
     try {
-        const { opponentId, type, message, target } = req.body;
+        const { opponentId, type, message, target, isShadow } = req.body;
         const challengerId = req.user.id;
 
         console.log('Create Duel Request:', { body: req.body, challengerId });
 
-        if (challengerId === opponentId) {
-            console.log('Self challenge attempted');
+        if (!isShadow && challengerId === opponentId) {
+            console.log('Self challenge attempted without shadow mode');
             return res.status(400).json({ message: 'You cannot challenge yourself' });
+        }
+
+        if (isShadow) {
+            // Shadow mode: challenge one self's past performance
+            const duel = await Duel.create({
+                challenger: challengerId,
+                opponent: challengerId, // Self as opponent for shadow duels
+                type,
+                target,
+                message: message || `Chrono-Shadow Challenge: ${type.replace('-', ' ')}`,
+                status: 'active', // Shadow duels start active immediately
+                isShadow: true,
+                startedAt: new Date(),
+                shadowData: {
+                    bestProgress: target, // In a real app, fetch from historical records
+                    recordedAt: new Date()
+                }
+            });
+
+            const populatedDuel = await Duel.findById(duel._id)
+                .populate('challenger', 'name avatar')
+                .populate('opponent', 'name avatar');
+
+            return res.status(201).json(populatedDuel);
         }
 
         const opponent = await User.findById(opponentId);

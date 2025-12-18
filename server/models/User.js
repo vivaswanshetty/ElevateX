@@ -52,7 +52,20 @@ const userSchema = mongoose.Schema({
     passwordResetExpires: { type: Date },
     // Terms acceptance
     termsAccepted: { type: Boolean, default: false },
-    termsAcceptedAt: { type: Date }
+    termsAcceptedAt: { type: Date },
+    // Gamification: Focus Alchemy
+    essences: {
+        focus: { type: Number, default: 0 },
+        creativity: { type: Number, default: 0 },
+        discipline: { type: Number, default: 0 }
+    },
+    relics: [{
+        id: { type: String },
+        name: { type: String },
+        tier: { type: String },
+        bonus: { type: String },
+        craftedAt: { type: Date, default: Date.now }
+    }]
 }, {
     timestamps: true
 });

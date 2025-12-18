@@ -186,6 +186,8 @@ const assignTask = async (req, res) => {
     }
 };
 
+const { getIO } = require('../utils/socketUtils');
+
 // @desc    Complete a task
 // @route   PUT /api/tasks/:id/complete
 // @access  Private
@@ -220,6 +222,15 @@ const completeTask = async (req, res) => {
             // Give coins and XP to fulfiller
             fulfiller.coins = (fulfiller.coins || 0) + task.coins;
             fulfiller.xp = (fulfiller.xp || 0) + 30; // XP for completing task
+
+            // Focus Alchemy: Award a random essence
+            const essenceTypes = ['focus', 'creativity', 'discipline'];
+            const randomEssence = essenceTypes[Math.floor(Math.random() * essenceTypes.length)];
+            if (!fulfiller.essences) {
+                fulfiller.essences = { focus: 0, creativity: 0, discipline: 0 };
+            }
+            fulfiller.essences[randomEssence] += 1;
+
             await fulfiller.save();
 
             // Create Transaction for fulfiller (receiving payment)
@@ -230,6 +241,18 @@ const completeTask = async (req, res) => {
                 task: task._id,
                 description: `Payment received for completing: ${task.title}`
             });
+
+            // Emit resonance event
+            try {
+                const io = getIO();
+                io.emit('resonance_event', {
+                    user: fulfiller.name,
+                    task: task.title,
+                    timestamp: new Date()
+                });
+            } catch (err) {
+                console.error('Socket emit error:', err);
+            }
         }
 
         if (creator) {

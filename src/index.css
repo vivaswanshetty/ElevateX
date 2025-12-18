@@ -30,57 +30,22 @@
     overflow-x: hidden;
   }
 
-  /* GPU Acceleration for specific elements */
-  * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  /* GPU Acceleration - Use sparingly to avoid memory bloat */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
   }
 
-  /* Optimize all animated elements - BUTTERY SMOOTH */
-  [class*="motion"],
-  [class*="animate"],
-  [class*="transition"] {
-    /* Smooth easing */
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* Ultra-smooth transitions for interactive elements */
+  /* Optimized Transitions */
   button,
   a,
-  input,
-  textarea,
-  select {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    /* GPU acceleration */
-    transform: translateZ(0);
-    will-change: transform, opacity;
+  input {
+    transition: all 0.2s ease-out;
   }
 
-  /* Optimize images and media */
-  img,
-  video {
-    will-change: transform;
-    transform: translateZ(0);
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-  }
-
-  /* Performance containment for sections */
+  /* Section Containment */
   section {
-    contain: layout style paint;
-    /* GPU layer */
-    transform: translateZ(0);
-  }
-
-  /* Smooth hover states */
-  button:hover,
-  a:hover {
-    transform: translateZ(0) scale(1.02);
-  }
-
-  button:active,
-  a:active {
-    transform: translateZ(0) scale(0.98);
+    contain: content;
   }
 
   /* Reduce motion for accessibility */

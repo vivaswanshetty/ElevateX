@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap, Wallet, LogOut, User, Sun, Moon, Search, Coins, Home, Compass, Swords, PlusCircle, Trophy, Rss, Users, Bell, MessageSquare } from 'lucide-react';
+import { Menu, X, Zap, Wallet, LogOut, User, Sun, Moon, Search, Coins, Home, Compass, Swords, PlusCircle, Trophy, Rss, Users, Bell, MessageSquare, Beaker, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
@@ -30,8 +30,8 @@ const Navbar = () => {
     useEffect(() => {
         if (currentUser) {
             fetchUnreadCounts();
-            // Poll every 5 seconds for new messages and activities (reduced for better responsiveness)
-            const interval = setInterval(fetchUnreadCounts, 5000);
+            // Poll every 30 seconds for new messages and activities (increased to prevent 429 errors)
+            const interval = setInterval(fetchUnreadCounts, 30000);
 
             // Listen for instant updates
             const handleMessagesRead = () => fetchUnreadCounts();
@@ -111,7 +111,9 @@ const Navbar = () => {
         { name: 'Feed', path: '/feed', icon: Rss },
         { name: 'Explore', path: '/explore', icon: Compass },
         { name: 'Find Users', path: '/search', icon: Users },
+        { name: 'Resonance Room', path: '/resonance', icon: Globe },
         { name: 'Duels', path: '/duel', icon: Swords },
+        { name: 'Alchemy Lab', path: '/alchemy', icon: Beaker },
         { name: 'Create Task', path: '/create', icon: PlusCircle },
         { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
         { name: 'Activity', path: '/activity', icon: Bell },

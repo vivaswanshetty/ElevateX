@@ -60,6 +60,7 @@ const ProductivityDuel = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [challengeMessage, setChallengeMessage] = useState('');
+    const [isShadowMode, setIsShadowMode] = useState(false);
 
     useEffect(() => {
         fetchDuels();
@@ -92,6 +93,7 @@ const ProductivityDuel = () => {
         setSearchResults([]);
         setSelectedOpponent(null);
         setChallengeMessage('');
+        setIsShadowMode(false);
     };
 
     const handleSearchUser = async (query) => {
@@ -113,21 +115,25 @@ const ProductivityDuel = () => {
     };
 
     const handleSendChallenge = async () => {
-        if (!selectedOpponent || !selectedChallenge || isSubmitting) return;
+        if (!isShadowMode && (!selectedOpponent || !selectedChallenge || isSubmitting)) return;
+        if (isShadowMode && (!selectedChallenge || isSubmitting)) return;
 
         setIsSubmitting(true);
         try {
             await api.post('/duels', {
-                opponentId: selectedOpponent._id,
+                opponentId: isShadowMode ? currentUser._id : selectedOpponent._id,
                 type: selectedChallenge.id,
                 target: selectedChallenge.target,
-                message: challengeMessage
+                message: challengeMessage,
+                isShadow: isShadowMode
             });
 
             setToast({
                 type: 'success',
-                title: 'Challenge Sent!',
-                message: `You challenged ${selectedOpponent.name} to a ${selectedChallenge.name}`
+                title: isShadowMode ? 'Shadow Duel Started!' : 'Challenge Sent!',
+                message: isShadowMode
+                    ? `You are now racing against your best self!`
+                    : `You challenged ${selectedOpponent.name} to a ${selectedChallenge.name}`
             });
 
             setShowCreateModal(false);
@@ -136,7 +142,7 @@ const ProductivityDuel = () => {
             setToast({
                 type: 'error',
                 title: 'Error',
-                message: error.response?.data?.message || 'Failed to send challenge'
+                message: error.response?.data?.message || 'Failed to start duel'
             });
         } finally {
             setIsSubmitting(false);
@@ -190,7 +196,7 @@ const ProductivityDuel = () => {
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-gradient-to-r from-red-700 via-orange-600 to-red-700 pt-32 pb-24 relative overflow-hidden"
+                className="bg-gradient-to-r from-red-700 via-orange-600 to-red-700 pt-40 pb-24 relative overflow-hidden"
             >
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                 <div className="absolute inset-0 bg-black/10"></div>
@@ -255,7 +261,7 @@ const ProductivityDuel = () => {
                         className="text-center"
                     >
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-red-600 mb-8 shadow-lg">
-                            <Swords className="w-4 h-4" />
+                            <Zap className="w-4 h-4" />
                             <span className="text-sm font-bold">Social Productivity Duel</span>
                         </div>
                         <h1 className="text-5xl md:text-7xl font-black text-white mb-6 drop-shadow-lg leading-tight">
@@ -335,20 +341,25 @@ const ProductivityDuel = () => {
                             {myDuels.map((duel) => {
                                 const challengeType = CHALLENGE_TYPES.find(c => c.id === duel.type) || CHALLENGE_TYPES[0];
                                 const isChallenger = duel.challenger._id === currentUser._id;
-                                const opponent = isChallenger ? duel.opponent : duel.challenger;
+                                const isShadow = duel.isShadow;
+                                const opponent = isShadow ? { name: 'Your Shadow' } : (isChallenger ? duel.opponent : duel.challenger);
                                 const myProgress = isChallenger ? duel.challengerProgress : duel.opponentProgress;
-                                const opponentProgress = isChallenger ? duel.opponentProgress : duel.challengerProgress;
+                                const opponentProgress = isShadow ? duel.shadowData?.bestProgress : (isChallenger ? duel.opponentProgress : duel.challengerProgress);
 
                                 return (
-                                    <div key={duel._id} className="bg-white dark:bg-[#111] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-lg">
+                                    <div key={duel._id} className={`bg-white dark:bg-[#111] rounded-2xl p-6 border ${isShadow ? 'border-purple-500/30' : 'border-gray-200 dark:border-white/10'} shadow-lg`}>
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${challengeType.color} flex items-center justify-center`}>
-                                                    <challengeType.icon className="w-5 h-5 text-white" />
+                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${isShadow ? 'from-purple-600 to-indigo-600' : challengeType.color} flex items-center justify-center`}>
+                                                    {isShadow ? <Clock className="w-5 h-5 text-white" /> : <challengeType.icon className="w-5 h-5 text-white" />}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-gray-900 dark:text-white">{challengeType.name}</h3>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">vs {opponent.name}</p>
+                                                    <h3 className="font-bold text-gray-900 dark:text-white">
+                                                        {isShadow ? `Shadow: ${challengeType.name}` : challengeType.name}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {isShadow ? 'Racing against past best' : `vs ${opponent.name}`}
+                                                    </p>
                                                 </div>
                                             </div>
                                             <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${duel.status === 'active' ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' :
@@ -541,49 +552,75 @@ const ProductivityDuel = () => {
                                     {selectedChallenge.name}
                                 </h3>
                                 <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-                                    Challenge a friend to {selectedChallenge.description.toLowerCase()}
+                                    {isShadowMode ? "Race against your own historical best performance." : `Challenge a friend to ${selectedChallenge.description.toLowerCase()}`}
                                 </p>
 
+                                {/* Mode Switcher */}
+                                <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl mb-6">
+                                    <button
+                                        onClick={() => setIsShadowMode(false)}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${!isShadowMode ? 'bg-white dark:bg-white/10 shadow-sm text-red-600' : 'text-gray-500'}`}
+                                    >
+                                        <Users className="w-4 h-4" />
+                                        Social
+                                    </button>
+                                    <button
+                                        onClick={() => setIsShadowMode(true)}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${isShadowMode ? 'bg-white dark:bg-white/10 shadow-sm text-red-600' : 'text-gray-500'}`}
+                                    >
+                                        <Clock className="w-4 h-4" />
+                                        Shadow
+                                    </button>
+                                </div>
+
                                 <div className="space-y-4 mb-6">
-                                    {/* User Search */}
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => handleSearchUser(e.target.value)}
-                                            placeholder="Search user to challenge..."
-                                            className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:border-red-500 outline-none transition-all"
-                                        />
-                                        {isSearching && (
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                        )}
+                                    {/* User Search - Only show if not shadow mode */}
+                                    {!isShadowMode ? (
+                                        <div className="relative">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => handleSearchUser(e.target.value)}
+                                                placeholder="Search user to challenge..."
+                                                className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:border-red-500 outline-none transition-all"
+                                            />
+                                            {isSearching && (
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                            )}
 
-                                        {/* Search Results Dropdown */}
-                                        {searchResults.length > 0 && !selectedOpponent && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-white/10 shadow-xl max-h-48 overflow-y-auto z-50">
-                                                {searchResults.map(user => (
-                                                    <div
-                                                        key={user._id}
-                                                        onClick={() => {
-                                                            setSelectedOpponent(user);
-                                                            setSearchQuery(user.name);
-                                                            setSearchResults([]);
-                                                        }}
-                                                        className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors"
-                                                    >
-                                                        <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}`} alt="" className="w-8 h-8 rounded-full" />
-                                                        <div className="text-left">
-                                                            <div className="font-bold text-gray-900 dark:text-white text-sm">{user.name}</div>
-                                                            <div className="text-xs text-gray-500">@{user.username}</div>
+                                            {/* Search Results Dropdown */}
+                                            {searchResults.length > 0 && !selectedOpponent && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-white/10 shadow-xl max-h-48 overflow-y-auto z-50">
+                                                    {searchResults.map(user => (
+                                                        <div
+                                                            key={user._id}
+                                                            onClick={() => {
+                                                                setSelectedOpponent(user);
+                                                                setSearchQuery(user.name);
+                                                                setSearchResults([]);
+                                                            }}
+                                                            className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors"
+                                                        >
+                                                            <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}`} alt="" className="w-8 h-8 rounded-full" />
+                                                            <div className="text-left">
+                                                                <div className="font-bold text-gray-900 dark:text-white text-sm">{user.name}</div>
+                                                                <div className="text-xs text-gray-500">@{user.username}</div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20 text-center">
+                                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                                                In Shadow Mode, you race against your own record.
+                                            </p>
+                                        </div>
+                                    )}
 
-                                    {selectedOpponent && (
+                                    {!isShadowMode && selectedOpponent && (
                                         <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
                                             <img src={selectedOpponent.avatar || `https://ui-avatars.com/api/?name=${selectedOpponent.name}`} alt="" className="w-10 h-10 rounded-full" />
                                             <div className="flex-1">
@@ -617,15 +654,15 @@ const ProductivityDuel = () => {
                                     </button>
                                     <button
                                         onClick={handleSendChallenge}
-                                        disabled={!selectedOpponent || isSubmitting}
+                                        disabled={(!isShadowMode && !selectedOpponent) || isSubmitting}
                                         className={`flex-1 py-3 bg-gradient-to-r ${selectedChallenge.color} text-white font-bold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
                                         {isSubmitting ? (
                                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                         ) : (
                                             <>
-                                                <UserPlus className="w-4 h-4" />
-                                                Send Challenge
+                                                {isShadowMode ? <Clock className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                                                {isShadowMode ? 'Start Shadow Duel' : 'Send Challenge'}
                                             </>
                                         )}
                                     </button>

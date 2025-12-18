@@ -16,6 +16,8 @@ import ProductivityDuel from './pages/ProductivityDuel';
 import Feed from './pages/Feed';
 import Activity from './pages/Activity';
 import SinglePost from './pages/SinglePost';
+import AlchemyLab from './pages/AlchemyLab';
+import ResonanceRoom from './pages/ResonanceRoom';
 
 import SecurePayments from './pages/SecurePayments';
 import AIMatching from './pages/AIMatching';
@@ -59,6 +61,8 @@ function App() {
                                 <Route path="/post/:id" element={<SinglePost />} />
                                 <Route path="/activity" element={<Activity />} />
                                 <Route path="/duel" element={<ProductivityDuel />} />
+                                <Route path="/alchemy" element={<AlchemyLab />} />
+                                <Route path="/resonance" element={<ResonanceRoom />} />
                                 <Route path="/tech-stack/:category?" element={<TechStack />} />
                                 <Route path="/future/payments" element={<SecurePayments />} />
                                 <Route path="/future/ai-matching" element={<AIMatching />} />

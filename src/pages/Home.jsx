@@ -26,47 +26,31 @@ const Home = () => {
         <>
             <div className="pt-16 relative overflow-hidden" style={{ willChange: 'transform' }}>
                 {/* Floating Particles Throughout Home Page - Optimized */}
-                {[...Array(8)].map((_, i) => (
+                {[...Array(3)].map((_, i) => ( // Reduced from 8 to 3
                     <motion.div
                         key={i}
                         className="absolute rounded-full pointer-events-none"
                         style={{
-                            width: Math.random() * 3 + 2,
-                            height: Math.random() * 3 + 2,
-                            background: i % 4 === 0
-                                ? 'radial-gradient(circle, #ffffff, #fef3c7)'
-                                : i % 4 === 1
-                                    ? 'radial-gradient(circle, #fef3c7, #fde68a)'
-                                    : i % 4 === 2
-                                        ? 'radial-gradient(circle, #fde68a, #fbbf24)'
-                                        : 'radial-gradient(circle, #fbbf24, #f59e0b)',
-                            boxShadow: '0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(251, 191, 36, 0.4)',
+                            width: 3,
+                            height: 3,
+                            background: '#fbbf24',
+                            boxShadow: '0 0 10px rgba(251, 191, 36, 0.4)',
                             zIndex: 1,
-                            willChange: 'transform, opacity',
+                            willChange: 'transform',
                             transform: 'translate3d(0, 0, 0)'
                         }}
                         initial={{
-                            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                            y: Math.random() * 3000,
+                            x: Math.random() * 1200,
+                            y: Math.random() * 2000,
                             opacity: 0,
-                            scale: 1
                         }}
                         animate={{
-                            y: [
-                                Math.random() * 3000,
-                                Math.random() * 3000
-                            ],
-                            x: [
-                                Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                                Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200)
-                            ],
-                            opacity: [0.4, 0.7, 0.4],
-                            scale: [1, 1.3, 1]
+                            y: [Math.random() * 2000, Math.random() * 2000],
+                            opacity: [0.2, 0.4, 0.2],
                         }}
                         transition={{
-                            duration: Math.random() * 8 + 15,
+                            duration: 20,
                             repeat: Infinity,
-                            delay: i * 0.3,
                             ease: "linear"
                         }}
                     />
@@ -78,62 +62,37 @@ const Home = () => {
 
                 {/* Live Tasks Section */}
                 <section className="py-16 px-6 relative overflow-hidden bg-transparent">
-                    {/* Subtle Floating Particles */}
-                    {[...Array(6)].map((_, i) => (
+                    {/* Subtle Floating Particles - Optimized */}
+                    {[...Array(2)].map((_, i) => ( // Reduced from 6 to 2
                         <motion.div
                             key={`live-tasks-particle-${i}`}
                             className="absolute rounded-full pointer-events-none"
                             style={{
-                                width: Math.random() * 4 + 2,
-                                height: Math.random() * 4 + 2,
-                                background: 'radial-gradient(circle, #fbbf24, #f59e0b)',
-                                boxShadow: '0 0 15px rgba(251, 191, 36, 0.5)',
+                                width: 4,
+                                height: 4,
+                                background: '#f59e0b',
+                                boxShadow: '0 0 10px rgba(251, 191, 36, 0.3)',
                                 zIndex: 1,
                             }}
                             initial={{
-                                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                                y: Math.random() * 800,
-                                opacity: 0,
+                                x: Math.random() * 1200,
+                                y: Math.random() * 400,
+                                opacity: 0.2,
                             }}
                             animate={{
-                                y: [Math.random() * 800, Math.random() * 800],
-                                x: [Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200), Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200)],
-                                opacity: [0.3, 0.6, 0.3],
+                                opacity: [0.2, 0.4, 0.2],
                             }}
                             transition={{
-                                duration: Math.random() * 8 + 12,
+                                duration: 10,
                                 repeat: Infinity,
-                                delay: i * 0.3,
                                 ease: "linear"
                             }}
                         />
                     ))}
 
-                    {/* Background Gradient Blobs */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 0.15 }}
-                        animate={{
-                            scale: [1, 1.2, 1],
-                        }}
-                        transition={{
-                            opacity: { duration: 1 },
-                            scale: { duration: 20, repeat: Infinity, ease: "easeInOut" },
-                        }}
-                        className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 blur-3xl"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 0.15 }}
-                        animate={{
-                            scale: [1, 1.2, 1],
-                        }}
-                        transition={{
-                            opacity: { duration: 1, delay: 0.2 },
-                            scale: { duration: 25, repeat: Infinity, ease: "easeInOut" },
-                        }}
-                        className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-br from-purple-600 via-pink-500 to-rose-600 blur-3xl"
-                    />
+                    {/* Background Gradient Blobs - Static for performance */}
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-yellow-400/10 to-red-600/10 blur-3xl rounded-full" />
+                    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-br from-purple-600/10 to-rose-600/10 blur-3xl rounded-full" />
 
                     <div className="container mx-auto relative z-10">
                         <motion.div
@@ -152,7 +111,7 @@ const Home = () => {
                                     viewport={{ once: true }}
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 border border-orange-300 dark:border-orange-500/40 mb-4"
                                 >
-                                    <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                    <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                                     <span className="text-sm font-bold text-orange-700 dark:text-orange-300">Featured Opportunities</span>
                                 </motion.div>
 
@@ -259,129 +218,47 @@ const Home = () => {
                 {/* Final CTA Section - ENHANCED */}
                 <section className="py-20 px-6 relative overflow-hidden bg-transparent" style={{ willChange: 'transform' }}>
                     {/* Floating Particles - Optimized */}
-                    {[...Array(8)].map((_, i) => (
+                    {[...Array(4)].map((_, i) => ( // Reduced from 8 to 4
                         <motion.div
                             key={`cta-particle-${i}`}
                             className="absolute rounded-full pointer-events-none"
                             style={{
-                                width: Math.random() * 3 + 2,
-                                height: Math.random() * 3 + 2,
-                                background: i % 4 === 0
-                                    ? 'radial-gradient(circle, #ffffff, #fef3c7)'
-                                    : i % 4 === 1
-                                        ? 'radial-gradient(circle, #fef3c7, #fde68a)'
-                                        : i % 4 === 2
-                                            ? 'radial-gradient(circle, #fde68a, #fbbf24)'
-                                            : 'radial-gradient(circle, #fbbf24, #f59e0b)',
-                                boxShadow: '0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(251, 191, 36, 0.4)',
+                                width: 3,
+                                height: 3,
+                                background: '#fbbf24',
+                                opacity: 0.3,
                                 zIndex: 1,
-                                willChange: 'transform, opacity',
-                                transform: 'translate3d(0, 0, 0)'
-                            }}
-                            initial={{
-                                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                                y: Math.random() * 800,
-                                opacity: 0,
-                                scale: 1
+                                willChange: 'transform',
                             }}
                             animate={{
-                                y: [
-                                    Math.random() * 800,
-                                    Math.random() * 800
-                                ],
-                                x: [
-                                    Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                                    Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200)
-                                ],
-                                opacity: [0.4, 0.7, 0.4],
-                                scale: [1, 1.3, 1]
+                                y: [100, -100],
                             }}
                             transition={{
-                                duration: Math.random() * 8 + 15,
+                                duration: 10,
                                 repeat: Infinity,
-                                delay: i * 0.3,
                                 ease: "linear"
                             }}
                         />
                     ))}
 
-                    {/* Layered Animated Background Blobs */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        whileInView={{ opacity: 0.25, scale: 1 }}
-                        animate={{
-                            rotate: [0, 180, 360],
-                            scale: [1, 1.1, 1],
-                            x: [0, 50, 0],
-                            y: [0, -30, 0]
-                        }}
-                        transition={{
-                            opacity: { duration: 1 },
-                            scale: { duration: 1 },
-                            rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                            x: { duration: 8, repeat: Infinity, ease: "easeInOut" },
-                            y: { duration: 6, repeat: Infinity, ease: "easeInOut" }
-                        }}
-                        className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 rounded-full blur-3xl"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        whileInView={{ opacity: 0.25, scale: 1 }}
-                        animate={{
-                            rotate: [360, 180, 0],
-                            scale: [1, 1.2, 1],
-                            x: [0, -40, 0],
-                            y: [0, 40, 0]
-                        }}
-                        transition={{
-                            opacity: { duration: 1, delay: 0.2 },
-                            scale: { duration: 1, delay: 0.2 },
-                            rotate: { duration: 25, repeat: Infinity, ease: "linear" },
-                            x: { duration: 10, repeat: Infinity, ease: "easeInOut" },
-                            y: { duration: 7, repeat: Infinity, ease: "easeInOut" }
-                        }}
-                        className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 rounded-full blur-3xl"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 0.15 }}
-                        animate={{
-                            scale: [1, 1.3, 1],
-                            rotate: [0, -180, -360]
-                        }}
-                        transition={{
-                            opacity: { duration: 1, delay: 0.4 },
-                            scale: { duration: 12, repeat: Infinity, ease: "easeInOut" },
-                            rotate: { duration: 30, repeat: Infinity, ease: "linear" }
-                        }}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur-3xl"
-                    />
+                    {/* Optimized Background Blobs */}
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-yellow-500/10 blur-[100px] rounded-full" />
+                    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 blur-[100px] rounded-full" />
 
                     {/* Floating Particles Effect - Optimized */}
-                    {[...Array(12)].map((_, i) => (
+                    {[...Array(4)].map((_, i) => ( // Reduced from 12 to 4
                         <motion.div
                             key={i}
-                            className="absolute w-1 h-1 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"
+                            className="absolute w-1 h-1 bg-yellow-400/30 rounded-full"
                             style={{
-                                willChange: 'transform, opacity',
-                                transform: 'translate3d(0, 0, 0)'
-                            }}
-                            initial={{
-                                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
-                                y: Math.random() * 800,
-                                opacity: 0,
-                                scale: Math.random() * 1.5 + 0.5
+                                willChange: 'transform',
                             }}
                             animate={{
-                                y: [Math.random() * 800, Math.random() * 800],
-                                x: [Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000), Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000)],
-                                opacity: [0.3, 0.7, 0.3],
-                                scale: [Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 1]
+                                y: [-50, 50],
                             }}
                             transition={{
-                                duration: Math.random() * 8 + 12,
+                                duration: 15,
                                 repeat: Infinity,
-                                delay: i * 0.3,
                                 ease: "linear"
                             }}
                         />
@@ -406,7 +283,7 @@ const Home = () => {
                                 viewport={{ once: true }}
                                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 border-2 border-orange-300 dark:border-orange-600/40 mb-8 shadow-2xl backdrop-blur-sm"
                             >
-                                ⚡
+                                <Zap className="w-4 h-4 text-orange-600" />
                                 <span className="text-sm font-black text-orange-700 dark:text-orange-300 tracking-wider uppercase">Transform Your Future</span>
                                 <motion.div
                                     animate={{ scale: [1, 1.2, 1] }}

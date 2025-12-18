@@ -29,7 +29,14 @@ connectDB().then(() => {
         });
 });
 
+const http = require('http');
+const socketUtils = require('./utils/socketUtils');
+
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io
+socketUtils.init(server);
 
 // Enable trust proxy for Render/Vercel (required for rate limiting behind a proxy)
 app.set('trust proxy', 1);
@@ -117,7 +124,7 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📧 Email service: ${process.env.NODE_ENV === 'production' ? 'Production' : 'Development'}`);
 });

@@ -53,76 +53,51 @@ const Hero = () => {
             <div className="absolute bottom-20 -right-20 w-[700px] h-[700px] bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 rounded-full blur-3xl opacity-20 pointer-events-none" />
             <div className="absolute top-1/3 left-1/3 w-[500px] h-[500px] bg-gradient-to-r from-blue-400 via-cyan-500 to-teal-500 rounded-full blur-3xl opacity-10 pointer-events-none" />
 
-            {/* Reduced Floating Particles */}
-            {[...Array(8)].map((_, i) => (
+            {/* Reduced Floating Particles - Optimized */}
+            {[...Array(3)].map((_, i) => ( // Reduced from 8 to 3
                 <motion.div
                     key={i}
                     className="absolute rounded-full pointer-events-none"
                     style={{
-                        width: Math.random() * 3 + 3,
-                        height: Math.random() * 3 + 3,
-                        background: i % 4 === 0
-                            ? 'radial-gradient(circle, #f59e0b, #d97706)'
-                            : 'radial-gradient(circle, #f97316, #ea580c)',
-                        boxShadow: '0 0 10px rgba(255, 255, 255, 0.4)',
+                        width: 4,
+                        height: 4,
+                        background: '#f59e0b',
+                        opacity: 0.1,
                         zIndex: 100,
                     }}
-                    initial={{
-                        x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                        y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
-                        opacity: 0.2,
-                    }}
                     animate={{
-                        y: [
-                            null,
-                            Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800)
-                        ],
-                        opacity: [0.2, 0.5, 0.2],
+                        opacity: [0.1, 0.3, 0.1],
                     }}
                     transition={{
-                        duration: Math.random() * 20 + 30, // Much slower
+                        duration: 15,
                         repeat: Infinity,
                         ease: "linear"
                     }}
                 />
             ))}
 
-            {/* Doodle Pattern Overlay */}
+            {/* Doodle Pattern Overlay - Reduced Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {[
-                    { Icon: Code, top: '10%', left: '10%' },
-                    { Icon: Sparkles, top: '20%', left: '80%' },
-                    { Icon: Zap, top: '60%', left: '15%' },
-                    { Icon: Coffee, top: '80%', left: '70%' },
-                    { Icon: Music, top: '15%', left: '40%' },
-                    { Icon: Sun, top: '75%', left: '30%' },
-                    { Icon: Cloud, top: '30%', left: '60%' },
-                    { Icon: Flag, top: '50%', left: '90%' },
-                    { Icon: Bookmark, top: '40%', left: '5%' },
-                    { Icon: Compass, top: '85%', left: '50%' },
-                    { Icon: Rocket, top: '5%', left: '90%' },
-                    { Icon: Smile, top: '90%', left: '10%' },
-                    { Icon: Cpu, top: '45%', left: '75%' },
-                    { Icon: Globe, top: '25%', left: '25%' },
-                    { Icon: Layers, top: '55%', left: '40%' },
+                    { Icon: Code, top: '15%', left: '15%' },
+                    { Icon: Sparkles, top: '25%', left: '75%' },
+                    { Icon: Zap, top: '65%', left: '10%' },
+                    { Icon: Rocket, top: '10%', left: '85%' },
+                    { Icon: Globe, top: '30%', left: '25%' },
                 ].map(({ Icon, top, left }, i) => (
                     <motion.div
                         key={i}
-                        className="absolute text-black/5 dark:text-white/20"
+                        className="absolute text-black/5 dark:text-white/10"
                         style={{ top, left }}
-                        initial={{ opacity: 0, scale: 0 }}
                         animate={{
-                            opacity: [0.3, 0.6, 0.3],
-                            scale: [1, 1.2, 1],
-                            rotate: [0, 10, -10, 0]
+                            opacity: [0.1, 0.2, 0.1],
                         }}
                         transition={{
-                            duration: 4 + Math.random() * 3,
+                            duration: 10,
                             repeat: Infinity,
-                            delay: Math.random() * 2
                         }}
                     >
-                        <Icon className="w-12 h-12 md:w-16 md:h-16" strokeWidth={1.5} />
+                        <Icon className="w-12 h-12 md:w-16 md:h-16" strokeWidth={1} />
                     </motion.div>
                 ))}
             </div>
@@ -148,7 +123,7 @@ const Hero = () => {
                         whileTap={{ scale: 0.95 }}
                         className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 border-2 border-yellow-300 dark:border-yellow-600/40 mb-8 shadow-xl backdrop-blur-sm cursor-pointer"
                     >
-                        <Sparkles className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                        <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                         <span className="text-sm font-black text-gray-800 dark:text-gray-200 tracking-wider uppercase">The Future of Skill Exchange</span>
                         <Zap className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                     </motion.div>

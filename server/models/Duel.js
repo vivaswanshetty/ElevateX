@@ -9,7 +9,16 @@ const duelSchema = new mongoose.Schema({
     opponent: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: function () { return !this.isShadow; }
+    },
+    isShadow: {
+        type: Boolean,
+        default: false
+    },
+    shadowData: {
+        // For storing historical snapshots to compare against
+        bestProgress: Number,
+        recordedAt: Date
     },
     type: {
         type: String,
