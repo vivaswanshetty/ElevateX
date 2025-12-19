@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Users, Globe, Share2, Sparkles } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { useAuth } from '../context/AuthContext';
 
 const ResonanceRoom = () => {
+    const { theme } = useAuth();
     const canvasRef = useRef(null);
     const [activeUsers, setActiveUsers] = useState(Math.floor(Math.random() * 50) + 120);
     const [harmonyLevel, setHarmonyLevel] = useState(65);
@@ -11,6 +13,8 @@ const ResonanceRoom = () => {
         { id: 1, user: 'Sarah', task: 'Design Sprint', timestamp: '07:23:16 PM' },
         { id: 2, user: 'Alex', task: 'Deep Work', timestamp: '07:23:12 PM' },
     ]);
+
+    const isDark = theme === 'dark';
 
     // Socket.io initialization
     useEffect(() => {
@@ -91,7 +95,9 @@ const ResonanceRoom = () => {
                 this.vx = (Math.random() - 0.5) * 0.5;
                 this.vy = (Math.random() - 0.5) * 0.5;
                 this.radius = Math.random() * 2 + 1;
-                this.color = `hsla(${220 + Math.random() * 60}, 70%, 70%, ${Math.random() * 0.5 + 0.2})`;
+                // Use slightly deeper colors in light mode for visibility
+                const lightness = isDark ? '70%' : '50%';
+                this.color = `hsla(${220 + Math.random() * 60}, 70%, ${lightness}, ${Math.random() * 0.5 + 0.2})`;
             }
 
             update() {
@@ -124,7 +130,10 @@ const ResonanceRoom = () => {
                     if (distSq < maxDist * maxDist) {
                         const dist = Math.sqrt(distSq);
                         ctx.beginPath();
-                        ctx.strokeStyle = `rgba(139, 92, 246, ${(1 - dist / maxDist) * 0.5})`;
+                        // Darker lines in light mode
+                        const opacity = isDark ? (1 - dist / maxDist) * 0.5 : (1 - dist / maxDist) * 0.3;
+                        const color = isDark ? `rgba(139, 92, 246, ${opacity})` : `rgba(124, 58, 237, ${opacity})`;
+                        ctx.strokeStyle = color;
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
                         ctx.stroke();
@@ -145,7 +154,8 @@ const ResonanceRoom = () => {
                 active.forEach(r => {
                     ctx.beginPath();
                     ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${r.opacity})`;
+                    // Blueish ripples in light mode, white in dark
+                    ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${r.opacity})` : `rgba(139, 92, 246, ${r.opacity})`;
                     ctx.lineWidth = 2;
                     ctx.stroke();
                 });
@@ -157,8 +167,15 @@ const ResonanceRoom = () => {
         const render = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
-            grad.addColorStop(0, '#0a0a1a');
-            grad.addColorStop(1, '#000000');
+
+            if (isDark) {
+                grad.addColorStop(0, '#0a0a1a');
+                grad.addColorStop(1, '#000000');
+            } else {
+                grad.addColorStop(0, '#f8fafc');
+                grad.addColorStop(1, '#e2e8f0');
+            }
+
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -178,10 +195,10 @@ const ResonanceRoom = () => {
             window.removeEventListener('resize', resize);
             cancelAnimationFrame(animationFrameId);
         };
-    }, []);
+    }, [isDark]);
 
     return (
-        <div className="relative min-h-screen bg-black overflow-hidden font-sans selection:bg-purple-500/30">
+        <div className="relative min-h-screen bg-white dark:bg-black overflow-hidden font-sans selection:bg-purple-500/30">
             <canvas
                 ref={canvasRef}
                 className="absolute inset-0 z-0 pointer-events-auto cursor-crosshair"
@@ -197,25 +214,25 @@ const ResonanceRoom = () => {
                         transition={{ repeat: Infinity, duration: 2 }}
                         className="px-6 py-2 bg-amber-500/20 border border-amber-500/40 rounded-full backdrop-blur-md flex items-center gap-2"
                     >
-                        <Zap size={16} className="text-amber-400 animate-pulse" />
-                        <span className="text-amber-400 font-black tracking-tighter uppercase text-xs">Harmony Surge Active: 3x Essence Chance</span>
+                        <Zap size={16} className="text-amber-600 dark:text-amber-400 animate-pulse" />
+                        <span className="text-amber-600 dark:text-amber-400 font-black tracking-tighter uppercase text-xs">Harmony Surge Active: 3x Essence Chance</span>
                     </motion.div>
                 </div>
             )}
 
             <div className="relative z-10 w-full h-full min-h-screen flex flex-col p-6 pt-24 pointer-events-none">
-                <header className="flex justify-between items-start">
+                <header className="flex flex-col md:flex-row justify-between items-start gap-6">
                     <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="p-6 bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl pointer-events-auto"
+                        className="p-6 bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 backdrop-blur-xl rounded-3xl pointer-events-auto shadow-sm dark:shadow-none"
                     >
-                        <div className="flex items-center gap-3 text-purple-400 mb-2 font-bold tracking-widest uppercase text-xs">
+                        <div className="flex items-center gap-3 text-purple-600 dark:text-purple-400 mb-2 font-bold tracking-widest uppercase text-xs">
                             <Globe size={16} />
                             Collective Consciousness
                         </div>
-                        <h1 className="text-4xl font-black text-white">Resonance Chamber</h1>
-                        <p className="text-slate-400 text-sm mt-1">Real-time synchronization of human effort.</p>
+                        <h1 className="text-4xl font-black text-slate-900 dark:text-white">Resonance Chamber</h1>
+                        <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Real-time synchronization of human effort.</p>
                     </motion.div>
 
                     <motion.div
@@ -223,14 +240,14 @@ const ResonanceRoom = () => {
                         animate={{ opacity: 1, x: 0 }}
                         className="grid grid-cols-2 gap-4 pointer-events-auto"
                     >
-                        <div className="p-4 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl text-center">
-                            <div className="text-purple-400 mb-1"><Users size={20} className="mx-auto" /></div>
-                            <div className="text-2xl font-black text-white">{activeUsers}</div>
+                        <div className="p-4 bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 backdrop-blur-md rounded-2xl text-center shadow-sm dark:shadow-none">
+                            <div className="text-purple-600 dark:text-purple-400 mb-1"><Users size={20} className="mx-auto" /></div>
+                            <div className="text-2xl font-black text-slate-900 dark:text-white">{activeUsers}</div>
                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Active Souls</div>
                         </div>
-                        <div className="p-4 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl text-center">
-                            <div className="text-blue-400 mb-1"><Zap size={20} className="mx-auto" /></div>
-                            <div className="text-2xl font-black text-white">{Math.round(harmonyLevel)}%</div>
+                        <div className="p-4 bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 backdrop-blur-md rounded-2xl text-center shadow-sm dark:shadow-none">
+                            <div className="text-blue-600 dark:text-blue-400 mb-1"><Zap size={20} className="mx-auto" /></div>
+                            <div className="text-2xl font-black text-slate-900 dark:text-white">{Math.round(harmonyLevel)}%</div>
                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Harmony Index</div>
                         </div>
                     </motion.div>
@@ -246,12 +263,12 @@ const ResonanceRoom = () => {
                         className="relative"
                     >
                         <div className="absolute inset-0 bg-purple-500/20 blur-[120px] rounded-full" />
-                        <Zap size={200} className="text-white/10 relative z-10" />
+                        <Zap size={200} className="text-slate-900/5 dark:text-white/10 relative z-10" />
                     </motion.div>
                 </main>
 
-                <footer className="flex justify-between items-end">
-                    <div className="w-80 pointer-events-auto">
+                <footer className="flex flex-col md:flex-row justify-between items-end gap-8">
+                    <div className="w-full md:w-80 pointer-events-auto">
                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-4">Latest Harmonizations</div>
                         <div className="space-y-3">
                             <AnimatePresence>
@@ -261,14 +278,14 @@ const ResonanceRoom = () => {
                                         initial={{ opacity: 0, x: -20, scale: 0.95 }}
                                         animate={{ opacity: 1, x: 0, scale: 1 }}
                                         exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                                        className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-xl"
+                                        className="p-3 bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/5 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-sm dark:shadow-xl"
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[10px] font-bold text-white">
                                             {event.user[0]}
                                         </div>
                                         <div className="flex-1">
-                                            <div className="text-xs font-bold text-white">
-                                                <span className="text-purple-400">{event.user}</span> synchronized <span className="text-blue-400">{event.task}</span>
+                                            <div className="text-xs font-bold text-slate-900 dark:text-white">
+                                                <span className="text-purple-600 dark:text-purple-400">{event.user}</span> synchronized <span className="text-blue-600 dark:text-blue-400">{event.task}</span>
                                             </div>
                                             <div className="text-[10px] text-slate-500">{event.timestamp}</div>
                                         </div>
@@ -282,13 +299,13 @@ const ResonanceRoom = () => {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-6 pointer-events-auto min-w-[280px]"
+                        className="bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 backdrop-blur-xl rounded-2xl p-6 pointer-events-auto min-w-[280px] shadow-sm dark:shadow-none"
                     >
                         <div className="flex items-center justify-between mb-4">
                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Collective Soul Goal</div>
-                            <div className="text-[10px] text-purple-400 font-bold">428/500</div>
+                            <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">428/500</div>
                         </div>
-                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-4">
+                        <div className="h-1.5 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden mb-4">
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: '85%' }}
@@ -296,28 +313,29 @@ const ResonanceRoom = () => {
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
                             />
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-tight">
-                            Reach 500 tasks globally to unlock the <span className="text-white">Celestial Forge</span> for 2 hours.
+                        <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
+                            Reach 500 tasks globally to unlock the <span className="text-slate-900 dark:text-white font-bold">Celestial Forge</span> for 2 hours.
                         </p>
                     </motion.div>
 
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-6 pointer-events-auto max-w-xs"
+                        className="bg-white/40 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 backdrop-blur-xl rounded-2xl p-6 pointer-events-auto max-w-xs shadow-sm dark:shadow-none"
                     >
-                        <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase mb-2">
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase mb-2">
                             <Sparkles size={14} />
                             Resonance Insight
                         </div>
-                        <p className="text-slate-300 text-sm leading-relaxed">
-                            Complete a task within 30 seconds of another user to trigger a <span className="text-white font-bold">Resonance Wave</span> (+2 XP for all participants).
+                        <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                            Complete a task within 30 seconds of another user to trigger a <span className="text-slate-900 dark:text-white font-bold">Resonance Wave</span> (+2 XP for all participants).
                         </p>
                     </motion.div>
                 </footer>
             </div>
 
-            <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[length:100%_4px,3px_100%]" />
+            {/* Scanning Lines Effect - Adjusted opacity for light mode */}
+            <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%]" />
         </div>
     );
 };
