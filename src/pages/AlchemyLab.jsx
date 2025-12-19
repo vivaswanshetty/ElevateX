@@ -26,6 +26,22 @@ const RELICS = [
         bonus: '-10% Duel cooldown',
         recipe: { focus: 3, creativity: 0, discipline: 5 },
         color: 'from-slate-400 to-zinc-600'
+    },
+    {
+        id: 'void-mirror',
+        name: 'Echoing Void Mirror',
+        tier: 'Epic',
+        bonus: '+15% XP for Night sessions',
+        recipe: { focus: 4, creativity: 4, discipline: 4 },
+        color: 'from-indigo-600 to-purple-900'
+    },
+    {
+        id: 'synergy-prism',
+        name: 'Prism of Synergy',
+        tier: 'Rare',
+        bonus: '+2 XP to Duel teammates',
+        recipe: { focus: 1, creativity: 3, discipline: 2 },
+        color: 'from-pink-400 to-rose-600'
     }
 ];
 
@@ -34,6 +50,16 @@ const AlchemyLab = () => {
     const [selectedRelic, setSelectedRelic] = useState(null);
     const [isCrafting, setIsCrafting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+
+    const handleTransmute = (fromType, toType) => {
+        if (userEssences[fromType] < 3) return;
+
+        setUserEssences(prev => ({
+            ...prev,
+            [fromType]: prev[fromType] - 3,
+            [toType]: prev[toType] + 1
+        }));
+    };
 
     const handleCraft = () => {
         if (!selectedRelic) return;
@@ -189,10 +215,32 @@ const AlchemyLab = () => {
                                             >
                                                 <Zap size={64} className="text-amber-400" />
                                                 <motion.div
-                                                    animate={{ scale: [1, 1.5, 1] }}
-                                                    transition={{ repeat: Infinity, duration: 1 }}
-                                                    className="absolute inset-0 blur-xl bg-amber-400/50 rounded-full"
+                                                    animate={{
+                                                        scale: [1, 1.2, 1],
+                                                        opacity: [0.3, 0.6, 0.3],
+                                                        rotate: [0, 180, 360]
+                                                    }}
+                                                    transition={{ repeat: Infinity, duration: 3 }}
+                                                    className="absolute inset-0 blur-2xl bg-gradient-to-tr from-purple-500 via-blue-500 to-amber-400 rounded-full"
                                                 />
+                                                {/* Bubbles */}
+                                                {[...Array(5)].map((_, i) => (
+                                                    <motion.div
+                                                        key={i}
+                                                        animate={{
+                                                            y: [-20, -100],
+                                                            x: [0, (i - 2) * 20],
+                                                            opacity: [0, 1, 0],
+                                                            scale: [0, 1, 0]
+                                                        }}
+                                                        transition={{
+                                                            repeat: Infinity,
+                                                            duration: 1 + Math.random(),
+                                                            delay: Math.random() * 2
+                                                        }}
+                                                        className="absolute bottom-0 left-1/2 w-2 h-2 bg-white/20 rounded-full blur-sm"
+                                                    />
+                                                ))}
                                             </motion.div>
                                         ) : selectedRelic ? (
                                             <motion.div
@@ -224,7 +272,8 @@ const AlchemyLab = () => {
                                         <div className="text-left bg-black/20 rounded-xl p-4 border border-white/5">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="text-xs text-slate-400 uppercase tracking-tighter">Requirements</span>
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedRelic.tier === 'Legendary' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedRelic.tier === 'Legendary' ? 'bg-amber-500/20 text-amber-400' :
+                                                    selectedRelic.tier === 'Epic' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}`}>
                                                     {selectedRelic.tier}
                                                 </span>
                                             </div>
@@ -253,6 +302,24 @@ const AlchemyLab = () => {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+
+                            {/* New Transmution Exchange */}
+                            <div className="mt-12 pt-8 border-t border-white/5 w-full">
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Essence Exchange</h3>
+                                <p className="text-[10px] text-slate-500 mb-4">Trade 3 of any essence to receive 1 of another.</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['focus', 'creativity', 'discipline'].map(type => (
+                                        <button
+                                            key={type}
+                                            disabled={userEssences[type] < 3}
+                                            onClick={() => handleTransmute(type, type === 'discipline' ? 'focus' : type === 'focus' ? 'creativity' : 'discipline')}
+                                            className="p-2 bg-white/5 border border-white/5 rounded-lg text-[10px] hover:bg-white/10 disabled:opacity-30 transition-all font-bold"
+                                        >
+                                            Trade {type.charAt(0).toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

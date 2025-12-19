@@ -46,6 +46,24 @@ const ResonanceRoom = () => {
         };
     }, []);
 
+    const [ripples, setRipples] = useState([]);
+
+    const handleCanvasClick = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const newRipple = {
+            id: Date.now(),
+            x,
+            y,
+            radius: 0,
+            opacity: 1
+        };
+
+        setRipples(prev => [...prev, newRipple]);
+    };
+
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
@@ -115,6 +133,27 @@ const ResonanceRoom = () => {
             }
         };
 
+        const drawRipples = () => {
+            setRipples(prev => {
+                const active = prev.filter(r => r.opacity > 0)
+                    .map(r => ({
+                        ...r,
+                        radius: r.radius + 2,
+                        opacity: r.opacity - 0.01
+                    }));
+
+                active.forEach(r => {
+                    ctx.beginPath();
+                    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${r.opacity})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+
+                return active;
+            });
+        };
+
         const render = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
@@ -129,6 +168,7 @@ const ResonanceRoom = () => {
             });
 
             drawResonanceLines();
+            drawRipples();
             animationFrameId = requestAnimationFrame(render);
         };
 
@@ -142,7 +182,26 @@ const ResonanceRoom = () => {
 
     return (
         <div className="relative min-h-screen bg-black overflow-hidden font-sans selection:bg-purple-500/30">
-            <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+            <canvas
+                ref={canvasRef}
+                className="absolute inset-0 z-0 pointer-events-auto cursor-crosshair"
+                onClick={handleCanvasClick}
+            />
+
+            {/* Harmony Surge Pulse */}
+            {harmonyLevel > 80 && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 z-50 pt-8 w-full flex justify-center pointer-events-none">
+                    <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: [1, 1.1, 1], opacity: 1 }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className="px-6 py-2 bg-amber-500/20 border border-amber-500/40 rounded-full backdrop-blur-md flex items-center gap-2"
+                    >
+                        <Zap size={16} className="text-amber-400 animate-pulse" />
+                        <span className="text-amber-400 font-black tracking-tighter uppercase text-xs">Harmony Surge Active: 3x Essence Chance</span>
+                    </motion.div>
+                </div>
+            )}
 
             <div className="relative z-10 w-full h-full min-h-screen flex flex-col p-6 pt-24 pointer-events-none">
                 <header className="flex justify-between items-start">
@@ -218,6 +277,29 @@ const ResonanceRoom = () => {
                             </AnimatePresence>
                         </div>
                     </div>
+
+                    {/* Collective Goal */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-6 pointer-events-auto min-w-[280px]"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Collective Soul Goal</div>
+                            <div className="text-[10px] text-purple-400 font-bold">428/500</div>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-4">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: '85%' }}
+                                transition={{ duration: 2 }}
+                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                            />
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-tight">
+                            Reach 500 tasks globally to unlock the <span className="text-white">Celestial Forge</span> for 2 hours.
+                        </p>
+                    </motion.div>
 
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}

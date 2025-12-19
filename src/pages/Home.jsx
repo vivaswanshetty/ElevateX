@@ -12,7 +12,7 @@ import { useData } from '../context/DataContext';
 import TaskCard from '../components/TaskCard';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Sparkles, Search } from 'lucide-react';
+import { ArrowRight, Sparkles, Search, Zap } from 'lucide-react';
 
 const Home = () => {
     const { tasks } = useData();
