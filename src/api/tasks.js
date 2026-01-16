@@ -34,3 +34,13 @@ export const addTaskMessage = async (id, text) => {
     const response = await api.post(`/tasks/${id}/chat`, { text });
     return response.data;
 };
+
+export const updateTask = async (id, taskData) => {
+    const response = await api.put(`/tasks/${id}`, taskData);
+    return response.data;
+};
+
+export const deleteTask = async (id) => {
+    const response = await api.delete(`/tasks/${id}`);
+    return response.data;
+};

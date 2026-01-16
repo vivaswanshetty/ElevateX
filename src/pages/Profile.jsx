@@ -11,13 +11,14 @@ import TaskDetailModal from '../components/TaskDetailModal';
 import ManageAccountModal from '../components/ManageAccountModal';
 import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
+import EditTaskModal from '../components/EditTaskModal';
 import api from '../api/axios';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 
 const Profile = () => {
     const { currentUser, getUserProfile, updateUser, deleteAccount } = useAuth();
-    const { tasks } = useData();
+    const { tasks, deleteTask, loading } = useData();
     const navigate = useNavigate();
     const [showAuth, setShowAuth] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -47,6 +48,11 @@ const Profile = () => {
     const [myInteractions, setMyInteractions] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [loadingInteractions, setLoadingInteractions] = useState(false);
+
+    // Task Management
+    const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
+    const [taskToEdit, setTaskToEdit] = useState(null);
+
     const user = getUserProfile();
 
     // Read tab from URL on mount or when location changes
@@ -321,8 +327,41 @@ const Profile = () => {
         }
     };
 
+
+
+    const handleEditTask = (e, task) => {
+        e.stopPropagation();
+        setTaskToEdit(task);
+        setIsEditTaskOpen(true);
+    };
+
+    const handleDeleteTask = (e, taskId) => {
+        e.stopPropagation();
+        setConfirmModal({
+            isOpen: true,
+            title: 'Delete Task',
+            message: 'Are you sure you want to delete this task? Coins locked in escrow will be refunded to your wallet.',
+            confirmText: 'Delete Task',
+            isDestructive: true,
+            onConfirm: async () => {
+                try {
+                    await deleteTask(taskId);
+                    showToast('cleared', 'Task deleted successfully');
+                } catch (error) {
+                    console.error('Error deleting task:', error);
+                    showToast('error', error || 'Failed to delete task');
+                }
+            }
+        });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black transition-colors duration-300 pb-20">
+            <EditTaskModal
+                isOpen={isEditTaskOpen}
+                onClose={() => setIsEditTaskOpen(false)}
+                task={taskToEdit}
+            />
             {/* Banner Section */}
             <div className="pt-32 pb-40 min-h-[350px] bg-gradient-to-r from-red-700 via-rose-600 to-orange-600 relative overflow-hidden flex items-center justify-center">
                 {/* Animated Background Graphics */}
@@ -639,7 +678,9 @@ const Profile = () => {
                                             exit={{ opacity: 0, x: -20 }}
                                             className="space-y-4"
                                         >
-                                            {myTasks.length === 0 ? (
+                                            {loading ? (
+                                                <div className="text-center text-gray-500 dark:text-gray-400 py-10">Loading your tasks...</div>
+                                            ) : myTasks.length === 0 ? (
                                                 <div className="text-center text-gray-500 dark:text-gray-400 py-10">No tasks posted yet</div>
                                             ) : (
                                                 myTasks.map(task => (
@@ -665,6 +706,22 @@ const Profile = () => {
                                                             <span className="flex items-center gap-1 font-bold text-gray-900 dark:text-white">
                                                                 <Coins className="w-4 h-4 text-yellow-500" /> {task.coins}
                                                             </span>
+                                                        </div>
+
+                                                        {/* Task Actions */}
+                                                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
+                                                            <button
+                                                                onClick={(e) => handleEditTask(e, task)}
+                                                                className="px-3 py-1.5 text-xs font-bold bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white rounded-lg transition-colors flex items-center gap-1"
+                                                            >
+                                                                <Edit2 className="w-3 h-3" /> Edit
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => handleDeleteTask(e, task._id)}
+                                                                className="px-3 py-1.5 text-xs font-bold bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg transition-colors flex items-center gap-1"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" /> Delete
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 ))

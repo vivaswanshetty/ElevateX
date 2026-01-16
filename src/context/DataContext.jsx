@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { createTask, getTasks, applyForTask as apiApply, assignTask as apiAssign, completeTask as apiComplete, addTaskMessage as apiAddTaskMessage } from '../api/tasks';
+import { createTask, getTasks, applyForTask as apiApply, assignTask as apiAssign, completeTask as apiComplete, addTaskMessage as apiAddTaskMessage, updateTask as apiUpdate, deleteTask as apiDelete } from '../api/tasks';
 import { getTransactions, depositCoins as apiDeposit, withdrawCoins as apiWithdraw } from '../api/transactions';
 
 const DataContext = createContext();
@@ -108,6 +108,46 @@ export const DataProvider = ({ children }) => {
         }
     };
 
+    const updateTask = async (taskId, taskData) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            const updatedTask = await apiUpdate(taskId, taskData);
+            setTasks(prev => prev.map(t => t._id === taskId ? updatedTask : t));
+
+            // Refresh user profile to get updated coins if changed
+            if (refreshProfile) {
+                await refreshProfile();
+            }
+            // Refresh transactions if any were created
+            const txs = await getTransactions();
+            setTransactions(txs);
+
+            return updatedTask;
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to update task";
+        }
+    };
+
+    const deleteTask = async (taskId) => {
+        if (!currentUser) throw new Error('Must be logged in');
+        try {
+            await apiDelete(taskId);
+            setTasks(prev => prev.filter(t => t._id !== taskId));
+
+            // Refresh transactions to show refund if any
+            const txs = await getTransactions();
+            setTransactions(txs);
+
+            // Refresh user profile to get updated coins
+            if (refreshProfile) {
+                await refreshProfile();
+            }
+
+        } catch (error) {
+            throw error.response?.data?.message || "Failed to delete task";
+        }
+    };
+
     const depositCoins = async (amount) => {
         if (!currentUser) return;
 
@@ -197,6 +237,8 @@ export const DataProvider = ({ children }) => {
             addChatMessage,
             depositCoins,
             withdrawCoins,
+            updateTask,
+            deleteTask,
             loading
         }}>
             {children}

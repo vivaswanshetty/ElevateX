@@ -1,26 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Hero from '../components/Hero';
 import ProjectSummary from '../components/ProjectSummary';
-import CoreFeatures from '../components/CoreFeatures';
-import Gamification from '../components/Gamification';
-import FutureScope from '../components/FutureScope';
 import StatsSection from '../components/StatsSection';
-import Testimonials from '../components/Testimonials';
-import HowItWorks from '../components/HowItWorks';
 import { useData } from '../context/DataContext';
 import TaskCard from '../components/TaskCard';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles, Search, Zap } from 'lucide-react';
 
+// Lazy load below-the-fold components
+const CoreFeatures = React.lazy(() => import('../components/CoreFeatures'));
+const Gamification = React.lazy(() => import('../components/Gamification'));
+const FutureScope = React.lazy(() => import('../components/FutureScope'));
+const Testimonials = React.lazy(() => import('../components/Testimonials'));
+const HowItWorks = React.lazy(() => import('../components/HowItWorks'));
+
+
 const Home = () => {
-    const { tasks } = useData();
+    const { tasks, loading } = useData();
     const navigate = useNavigate();
     const recentTasks = tasks
         .filter(task => task.status !== 'Completed' && task.status !== 'completed')
         .slice(0, 3);
     const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+    const TaskSkeleton = () => (
+        <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/5 shadow-xl h-[280px] flex flex-col gap-4 animate-pulse">
+            <div className="flex justify-between items-start">
+                <div className="h-6 w-3/4 bg-gray-200 dark:bg-white/10 rounded-md" />
+                <div className="h-6 w-16 bg-gray-200 dark:bg-white/10 rounded-full" />
+            </div>
+            <div className="space-y-2 flex-1">
+                <div className="h-4 w-full bg-gray-200 dark:bg-white/10 rounded-md" />
+                <div className="h-4 w-5/6 bg-gray-200 dark:bg-white/10 rounded-md" />
+                <div className="h-4 w-4/6 bg-gray-200 dark:bg-white/10 rounded-md" />
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-white/10">
+                <div className="h-8 w-24 bg-gray-200 dark:bg-white/10 rounded-lg" />
+                <div className="h-8 w-20 bg-gray-200 dark:bg-white/10 rounded-lg" />
+            </div>
+        </div>
+    );
 
     return (
         <>
@@ -156,38 +177,50 @@ const Home = () => {
                         </motion.div>
 
                         {/* Task Cards Grid */}
-                        <div className="grid md:grid-cols-3 gap-8">
-                            {recentTasks.map((task, index) => (
-                                <motion.div
-                                    key={task._id}
-                                    initial={{ opacity: 0, y: 40 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{
-                                        duration: 0.5,
-                                        delay: index * 0.15,
-                                    }}
-                                    viewport={{ once: true }}
-                                    whileHover={{ y: -8, scale: 1.02 }}
-                                    className="cursor-pointer"
-                                >
-                                    <div
-                                        className="relative"
-                                        onClick={() => setSelectedTaskId(task._id)}
+                        <div className="grid md:grid-cols-3 gap-8 min-h-[300px]">
+                            {loading ? (
+                                <>
+                                    <TaskSkeleton />
+                                    <TaskSkeleton />
+                                    <TaskSkeleton />
+                                </>
+                            ) : recentTasks.length > 0 ? (
+                                recentTasks.map((task, index) => (
+                                    <motion.div
+                                        key={task._id}
+                                        initial={{ opacity: 0, y: 40 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        transition={{
+                                            duration: 0.5,
+                                            delay: index * 0.15,
+                                        }}
+                                        viewport={{ once: true }}
+                                        whileHover={{ y: -8, scale: 1.02 }}
+                                        className="cursor-pointer"
                                     >
-                                        {/* Trending Badge */}
-                                        {index === 0 && (
-                                            <div className="absolute -top-3 -right-3 z-10 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
-                                                🔥 TRENDING
-                                            </div>
-                                        )}
+                                        <div
+                                            className="relative"
+                                            onClick={() => setSelectedTaskId(task._id)}
+                                        >
+                                            {/* Trending Badge */}
+                                            {index === 0 && (
+                                                <div className="absolute -top-3 -right-3 z-10 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                                                    🔥 TRENDING
+                                                </div>
+                                            )}
 
-                                        {/* Card */}
-                                        <div className="relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300">
-                                            <TaskCard task={{ ...task, description: task.description, price: task.coins + ' Coins', rating: 5.0, xp: 100 }} />
+                                            {/* Card */}
+                                            <div className="relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300">
+                                                <TaskCard task={{ ...task, description: task.description, price: task.coins + ' Coins', rating: 5.0, xp: 100 }} />
+                                            </div>
                                         </div>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                    </motion.div>
+                                ))
+                            ) : (
+                                <div className="col-span-3 text-center text-gray-500 dark:text-gray-400 py-10">
+                                    No live tasks available at the moment.
+                                </div>
+                            )}
                         </div>
 
                         {/* Mobile CTA Button */}
@@ -209,11 +242,13 @@ const Home = () => {
                     </div>
                 </section>
 
-                <HowItWorks />
-                <CoreFeatures />
-                <Testimonials />
-                <Gamification />
-                <FutureScope />
+                <Suspense fallback={<div className="py-20 text-center">Loading content...</div>}>
+                    <HowItWorks />
+                    <CoreFeatures />
+                    <Testimonials />
+                    <Gamification />
+                    <FutureScope />
+                </Suspense>
 
                 {/* Final CTA Section - ENHANCED */}
                 <section className="py-20 px-6 relative overflow-hidden bg-transparent" style={{ willChange: 'transform' }}>

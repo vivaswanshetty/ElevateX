@@ -7,62 +7,65 @@ const { sendEmail, emailTemplates } = require('../services/emailService');
 // @route   POST /api/tasks
 // @access  Private
 const createTask = async (req, res) => {
-    const { title, category, sub, rewardId, coins, desc, deadline, files } = req.body;
+    try {
+        const { title, category, sub, rewardId, coins, desc, deadline, files } = req.body;
 
-    if (!title || !category || !sub || !coins || !desc || !deadline) {
-        return res.status(400).json({ message: 'Please add all required fields' });
-    }
+        if (!title || !category || !sub || !coins || !desc || !deadline) {
+            return res.status(400).json({ message: 'Please add all required fields' });
+        }
 
-    const user = await User.findById(req.user._id);
-    if (user.coins < coins) {
-        return res.status(400).json({ message: 'Insufficient coins' });
-    }
+        const user = await User.findById(req.user._id);
+        if (user.coins < coins) {
+            return res.status(400).json({ message: 'Insufficient coins' });
+        }
 
-    const task = await Task.create({
-        title,
-        category,
-        subcategory: sub,
-        rewardTier: rewardId,
-        coins,
-        description: desc,
-        deadline,
-        attachments: files,
-        createdBy: req.user._id
-    });
-
-    if (task) {
-        // Create Transaction
-        await Transaction.create({
-            user: req.user._id,
-            type: 'escrow-lock',
-            amount: coins,
-            task: task._id,
-            description: `Escrow lock for task: ${title}`
+        const task = await Task.create({
+            title,
+            category,
+            subcategory: sub,
+            rewardTier: rewardId,
+            coins,
+            description: desc,
+            deadline,
+            attachments: files,
+            createdBy: req.user._id
         });
 
-        // Deduct coins
-        user.coins -= coins;
-        user.xp += 10;
-        await user.save();
-
-        // Notify all other users about the new task (Async - don't wait)
-        // Note: In a real production app with many users, this should be handled by a job queue (e.g., BullMQ)
-        // to avoid blocking the response and hitting rate limits.
-        User.find({ _id: { $ne: req.user._id } }).select('email name').then(users => {
-            users.forEach(u => {
-                const emailData = emailTemplates.newTaskAvailable(u.name, title, coins);
-                sendEmail({
-                    to: u.email,
-                    subject: emailData.subject,
-                    html: emailData.html,
-                    text: emailData.text
-                }).catch(err => console.error(`Failed to send new task email to ${u.email}`, err));
+        if (task) {
+            // Create Transaction
+            await Transaction.create({
+                user: req.user._id,
+                type: 'escrow-lock',
+                amount: coins,
+                task: task._id,
+                description: `Escrow lock for task: ${title}`
             });
-        });
 
-        res.status(201).json(task);
-    } else {
-        res.status(400).json({ message: 'Invalid task data' });
+            // Deduct coins
+            user.coins -= coins;
+            user.xp += 10;
+            await user.save();
+
+            // Notify all other users (Async)
+            User.find({ _id: { $ne: req.user._id } }).select('email name').then(users => {
+                users.forEach(u => {
+                    const emailData = emailTemplates.newTaskAvailable(u.name, title, coins);
+                    sendEmail({
+                        to: u.email,
+                        subject: emailData.subject,
+                        html: emailData.html,
+                        text: emailData.text
+                    }).catch(err => console.error(`Failed to send new task email to ${u.email}`, err));
+                });
+            });
+
+            res.status(201).json(task);
+        } else {
+            res.status(400).json({ message: 'Invalid task data' });
+        }
+    } catch (error) {
+        console.error('Create Task Error:', error);
+        res.status(500).json({ message: error.message || 'Server error while creating task' });
     }
 };
 
@@ -459,6 +462,68 @@ const markMessagesAsRead = async (req, res) => {
     }
 };
 
+// @desc    Update a task
+// @route   PUT /api/tasks/:id
+// @access  Private
+const updateTask = async (req, res) => {
+    const { title, desc, deadline } = req.body;
+    const task = await Task.findById(req.params.id);
+
+    if (task) {
+        // Only creator can edit
+        if (task.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
+        task.title = title || task.title;
+        task.description = desc || task.description;
+        task.deadline = deadline || task.deadline;
+
+        const updatedTask = await task.save();
+        res.json(updatedTask);
+    } else {
+        res.status(404).json({ message: 'Task not found' });
+    }
+};
+
+// @desc    Delete a task
+// @route   DELETE /api/tasks/:id
+// @access  Private
+const deleteTask = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (task) {
+        if (task.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
+        if (task.status === 'Completed') {
+            return res.status(400).json({ message: 'Cannot delete completed task' });
+        }
+
+        // Refund coins to creator
+        const user = await User.findById(req.user._id);
+        if (user) {
+            user.coins += task.coins;
+            await user.save();
+
+            // Create refund transaction
+            await Transaction.create({
+                user: req.user._id,
+                type: 'escrow-refund',
+                amount: task.coins,
+                task: task._id,
+                description: `Refund for deleted task: ${task.title}`
+            });
+        }
+
+        await task.remove();
+        res.json({ message: 'Task removed' });
+    } else {
+        res.status(404).json({ message: 'Task not found' });
+    }
+};
+
 module.exports = {
     createTask,
     getTasks,
@@ -470,5 +535,7 @@ module.exports = {
     editTaskMessage,
     deleteTaskMessage,
     reactToMessage,
-    markMessagesAsRead
+    markMessagesAsRead,
+    updateTask,
+    deleteTask
 };

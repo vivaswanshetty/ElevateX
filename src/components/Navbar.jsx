@@ -168,14 +168,7 @@ const Navbar = () => {
                 {/* Animated Top Border Gradient */}
                 <motion.div
                     className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-red-500/40 to-transparent"
-                    animate={{
-                        opacity: scrolled ? [0.4, 0.9, 0.4] : 0.3,
-                        backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-                    }}
-                    transition={{
-                        opacity: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-                        backgroundPosition: { duration: 8, repeat: Infinity, ease: "linear" }
-                    }}
+                    style={{ opacity: scrolled ? 0.9 : 0.3 }}
                 />
 
                 <div className="container mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center" style={{ position: 'relative' }}>
@@ -247,10 +240,8 @@ const Navbar = () => {
                                 {/* Metallic Icon - True Red */}
                                 <motion.div
                                     className="relative z-10"
-                                    animate={{
-                                        scale: [1, 1.03, 1],
-                                    }}
-                                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                    whileHover={{ scale: 1.05 }}
+                                    transition={{ duration: 0.3 }}
                                 >
                                     <Zap
                                         className="w-6 h-6 sm:w-7 sm:h-7 drop-shadow-[0_0_12px_rgba(220,38,38,0.9)]"

@@ -1,10 +1,10 @@
 const express = require('express');
-const { createTask, getTasks, getTaskById, applyForTask, assignTask, completeTask, addTaskMessage, editTaskMessage, deleteTaskMessage, reactToMessage, markMessagesAsRead } = require('../controllers/taskController');
+const { createTask, getTasks, getTaskById, applyForTask, assignTask, completeTask, addTaskMessage, editTaskMessage, deleteTaskMessage, reactToMessage, markMessagesAsRead, updateTask, deleteTask } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 router.route('/').post(protect, createTask).get(getTasks);
-router.route('/:id').get(getTaskById);
+router.route('/:id').get(getTaskById).put(protect, updateTask).delete(protect, deleteTask);
 router.route('/:id/apply').put(protect, applyForTask);
 router.route('/:id/assign').put(protect, assignTask);
 router.route('/:id/complete').put(protect, completeTask);

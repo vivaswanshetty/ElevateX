@@ -7,7 +7,7 @@ const createTransporter = async () => {
 
     if (process.env.NODE_ENV === 'production') {
         // Production email configuration
-        return nodemailer.createTransporter({
+        return nodemailer.createTransport({
             host: process.env.EMAIL_HOST,
             port: process.env.EMAIL_PORT,
             secure: true,
@@ -33,7 +33,7 @@ const createTransporter = async () => {
             }
         }
 
-        return nodemailer.createTransporter({
+        return nodemailer.createTransport({
             host: 'smtp.ethereal.email',
             port: 587,
             secure: false,
