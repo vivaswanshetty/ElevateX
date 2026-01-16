@@ -7,7 +7,7 @@ import api from '../api/axios';
 import UserProfileModal from '../components/UserProfileModal';
 import AuthModal from '../components/AuthModal';
 
-const EMOJI_OPTIONS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '💯', '✨'];
+const EMOJI_OPTIONS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '💯', '✨','🙏🏻'];
 
 const Chat = () => {
     const { user: currentUser } = useAuth();
