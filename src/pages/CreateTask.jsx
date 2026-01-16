@@ -55,18 +55,87 @@ const CreateTask = () => {
         );
     }
 
-    const handleFileChange = (e) => {
-        const selectedFiles = Array.from(e.target.files || []);
-        selectedFiles.forEach(file => {
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = (ev) => {
-                setFiles(prev => [...prev, { name: file.name, type: file.type, data: ev.target.result }]);
-            };
             reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1200; // Reasonable max width for quality
+                    const scaleSize = MAX_WIDTH / img.width;
+
+                    if (img.width > MAX_WIDTH) {
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                    } else {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    }
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Compress to 0.7 quality jpeg to significantly reduce size
+                    // This typically brings a 5MB png down to <500KB jpeg
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    resolve({
+                        name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+                        type: 'image/jpeg',
+                        data: dataUrl
+                    });
+                };
+            };
         });
     };
 
-    const handleSubmit = (e) => {
+    const handleFileChange = async (e) => {
+        const selectedFiles = Array.from(e.target.files || []);
+
+        if (selectedFiles.length + files.length > 5) {
+            setError("You can only upload a maximum of 5 files.");
+            return;
+        }
+
+        const processedFiles = [];
+        const MAX_SIZE_MB = 2; // 2MB limit for non-images
+
+        for (const file of selectedFiles) {
+            if (file.type.startsWith('image/')) {
+                try {
+                    const compressed = await compressImage(file);
+                    processedFiles.push(compressed);
+                } catch (err) {
+                    console.error("Error compressing image:", err);
+                    setError("Failed to process image: " + file.name);
+                }
+            } else {
+                // Check size for non-images
+                if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+                    setError(`File ${file.name} is too large. Max size is ${MAX_SIZE_MB}MB.`);
+                    continue;
+                }
+
+                // Read as before
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setFiles(prev => [...prev, { name: file.name, type: file.type, data: ev.target.result }]);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Add processed images immediately
+        if (processedFiles.length > 0) {
+            setFiles(prev => [...prev, ...processedFiles]);
+        }
+    };
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
@@ -76,16 +145,18 @@ const CreateTask = () => {
         }
 
         const tier = REWARD_TIERS.find(t => t.id === formData.rewardId);
+        setIsSubmitting(true);
 
         try {
-            postTask({
+            await postTask({
                 ...formData,
                 coins: tier.coins,
                 files
             });
             navigate('/explore');
         } catch (err) {
-            setError(err.message);
+            setError(err.message || "Failed to post task");
+            setIsSubmitting(false);
         }
     };
 
@@ -358,7 +429,7 @@ const CreateTask = () => {
                             </div>
                         </motion.div>
 
-                        {/* File Preview */}
+                        {/* File preview section remains the same, assuming it was correct in previous context */}
                         {files.length > 0 && (
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
@@ -398,12 +469,22 @@ const CreateTask = () => {
                         >
                             <motion.button
                                 type="submit"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                className="w-full py-5 bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 text-white font-black text-lg rounded-xl shadow-lg hover:shadow-2xl transition-all flex items-center justify-center gap-3"
+                                disabled={isSubmitting}
+                                whileHover={!isSubmitting ? { scale: 1.02 } : {}}
+                                whileTap={!isSubmitting ? { scale: 0.98 } : {}}
+                                className={`w-full py-5 bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 text-white font-black text-lg rounded-xl shadow-lg hover:shadow-2xl transition-all flex items-center justify-center gap-3 ${isSubmitting ? 'opacity-70 cursor-not-allowed grayscale' : ''}`}
                             >
-                                <Sparkles className="w-6 h-6" />
-                                Publish Task
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Publishing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-6 h-6" />
+                                        Publish Task
+                                    </>
+                                )}
                             </motion.button>
                             <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">Coins will be deducted immediately and held in escrow</p>
                         </motion.div>
