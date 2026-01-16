@@ -466,24 +466,76 @@ const markMessagesAsRead = async (req, res) => {
 // @route   PUT /api/tasks/:id
 // @access  Private
 const updateTask = async (req, res) => {
-    const { title, desc, deadline } = req.body;
+    const { title, desc, deadline, category, sub, coins, rewardId, newAttachments, removedAttachmentIds } = req.body;
     const task = await Task.findById(req.params.id);
 
-    if (task) {
-        // Only creator can edit
-        if (task.createdBy.toString() !== req.user._id.toString()) {
-            return res.status(401).json({ message: 'Not authorized' });
-        }
-
-        task.title = title || task.title;
-        task.description = desc || task.description;
-        task.deadline = deadline || task.deadline;
-
-        const updatedTask = await task.save();
-        res.json(updatedTask);
-    } else {
-        res.status(404).json({ message: 'Task not found' });
+    if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
     }
+
+    // Only creator can edit
+    if (task.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    // 1. Handle Coin Adjustments
+    if (typeof coins === 'number' && coins !== task.coins) {
+        const coinDiff = coins - task.coins;
+        const user = await User.findById(req.user._id);
+
+        if (coinDiff > 0) {
+            // Charging more - check balance
+            if (user.coins < coinDiff) {
+                return res.status(400).json({ message: `Insufficient coins. You need ${coinDiff} more coins.` });
+            }
+            user.coins -= coinDiff;
+            await Transaction.create({
+                user: user._id,
+                type: 'withdraw',
+                amount: coinDiff,
+                description: `Increased reward for task: ${task.title}`
+            });
+        } else if (coinDiff < 0) {
+            // Refund
+            const refundAmount = Math.abs(coinDiff);
+            user.coins += refundAmount;
+            await Transaction.create({
+                user: user._id,
+                type: 'deposit',
+                amount: refundAmount,
+                description: `Refund from task adjustment: ${task.title}`
+            });
+        }
+        await user.save();
+        task.coins = coins;
+    }
+
+    // 2. Update Basic Fields
+    if (title) task.title = title;
+    if (desc) task.description = desc;
+    if (deadline) task.deadline = deadline;
+    if (category) task.category = category;
+    if (sub) task.subcategory = sub;
+    if (rewardId) task.rewardTier = rewardId;
+
+    // 3. Handle Attachments
+    // Remove deleted ones
+    if (removedAttachmentIds && removedAttachmentIds.length > 0) {
+        // Filter out attachments whose IDs are in the removed list
+        task.attachments = task.attachments.filter(att => !removedAttachmentIds.includes(att._id.toString()));
+    }
+    // Add new ones
+    if (newAttachments && newAttachments.length > 0) {
+        task.attachments.push(...newAttachments);
+    }
+
+    await task.save();
+
+    const populatedTask = await Task.findById(task._id)
+        .populate('createdBy', 'name avatar')
+        .populate('applicants.user', 'name avatar');
+
+    res.json(populatedTask);
 };
 
 // @desc    Delete a task
@@ -510,14 +562,15 @@ const deleteTask = async (req, res) => {
             // Create refund transaction
             await Transaction.create({
                 user: req.user._id,
-                type: 'escrow-refund',
+                type: 'deposit', // Simplified type
                 amount: task.coins,
-                task: task._id,
+                // task: task._id, // task might be optional depending on schema
                 description: `Refund for deleted task: ${task.title}`
             });
         }
 
-        await task.remove();
+        await Task.deleteOne({ _id: req.params.id });
+        res.json({ message: 'Task removed' });
         res.json({ message: 'Task removed' });
     } else {
         res.status(404).json({ message: 'Task not found' });
