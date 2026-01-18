@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import UserProfileModal from '../components/UserProfileModal';
 import AuthModal from '../components/AuthModal';
+import { formatTime, groupMessagesByDate, formatConversationDate } from '../utils/dateUtils';
 
-const EMOJI_OPTIONS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '💯', '✨','🙏🏻'];
+const EMOJI_OPTIONS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '💯', '✨', '🙏🏻'];
 
 const Chat = () => {
     const { user: currentUser } = useAuth();
@@ -489,7 +490,7 @@ const Chat = () => {
                                                     {chat.user.name}
                                                 </h3>
                                                 <span className="text-xs text-gray-500">
-                                                    {chat.isSuggestion ? '' : new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {chat.isSuggestion ? '' : formatConversationDate(chat.timestamp)}
                                                 </span>
                                             </div>
                                             <p className={`text-sm truncate ${chat.isUnread ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-500'} ${chat.isSuggestion ? 'italic text-yellow-600 dark:text-yellow-500' : ''}`}>
@@ -606,213 +607,219 @@ const Chat = () => {
                                             </div>
                                         ) : (
                                             <>
-                                                <div className="text-center py-4">
-                                                    <p className="text-xs text-gray-400 uppercase tracking-wider">Today</p>
-                                                </div>
-                                                {messages.map((msg, index) => {
-                                                    const isOwn = msg.sender._id === currentUser._id || msg.sender === currentUser._id;
-                                                    const isEditing = editingMessageId === msg._id;
-                                                    const isMenuOpen = messageMenuOpen === msg._id;
-
-                                                    // Check if message is within 15 minutes (editable window)
-                                                    const messageAge = new Date() - new Date(msg.createdAt);
-                                                    const isEditableTime = messageAge < 15 * 60 * 1000; // 15 minutes in milliseconds
-
-                                                    return (
-                                                        <motion.div
-                                                            key={msg._id || index}
-                                                            initial={{ opacity: 0, y: 10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} group relative`}
-                                                        >
-                                                            <div className={`flex items-end gap-1 max-w-[75%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                                {/* Message Menu Icon - WhatsApp Style */}
-                                                                {!isEditing && (
-                                                                    <div className="relative flex items-center">
-                                                                        <button
-                                                                            onClick={() => setMessageMenuOpen(isMenuOpen ? null : msg._id)}
-                                                                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                        >
-                                                                            <ChevronDown className="w-4 h-4" />
-                                                                        </button>
-
-                                                                        {/* Dropdown Menu */}
-                                                                        <AnimatePresence>
-                                                                            {isMenuOpen && (
-                                                                                <>
-                                                                                    {/* Backdrop to close menu */}
-                                                                                    <div
-                                                                                        className="fixed inset-0 z-10"
-                                                                                        onClick={() => setMessageMenuOpen(null)}
-                                                                                    />
-                                                                                    <motion.div
-                                                                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                                        className={`absolute ${isOwn ? 'right-0' : 'left-0'} top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 py-1 z-20 min-w-[160px]`}
-                                                                                    >
-                                                                                        {/* React Option */}
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                setReactionPickerMessageId(msg._id);
-                                                                                                setMessageMenuOpen(null);
-                                                                                            }}
-                                                                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
-                                                                                        >
-                                                                                            <Smile className="w-4 h-4" />
-                                                                                            <span>React</span>
-                                                                                        </button>
-
-                                                                                        {/* Copy Option */}
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                handleCopyMessage(msg.content);
-                                                                                                setMessageMenuOpen(null);
-                                                                                            }}
-                                                                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
-                                                                                        >
-                                                                                            <Copy className="w-4 h-4" />
-                                                                                            <span>Copy</span>
-                                                                                        </button>
-
-                                                                                        {/* Edit Option - Only for own messages within 15 minutes */}
-                                                                                        {isOwn && isEditableTime && (
-                                                                                            <button
-                                                                                                onClick={() => {
-                                                                                                    setEditingMessageId(msg._id);
-                                                                                                    setEditingText(msg.content);
-                                                                                                    setMessageMenuOpen(null);
-                                                                                                }}
-                                                                                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
-                                                                                            >
-                                                                                                <Edit2 className="w-4 h-4" />
-                                                                                                <span>Edit</span>
-                                                                                            </button>
-                                                                                        )}
-
-                                                                                        {/* Delete Option - Only for own messages */}
-                                                                                        {isOwn && (
-                                                                                            <button
-                                                                                                onClick={() => {
-                                                                                                    setDeleteConfirm(msg._id);
-                                                                                                    setMessageMenuOpen(null);
-                                                                                                }}
-                                                                                                className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3"
-                                                                                            >
-                                                                                                <Trash2 className="w-4 h-4" />
-                                                                                                <span>Delete</span>
-                                                                                            </button>
-                                                                                        )}
-                                                                                    </motion.div>
-                                                                                </>
-                                                                            )}
-                                                                        </AnimatePresence>
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Message Content */}
-                                                                <div className="flex-1 min-w-0">
-                                                                    {isEditing ? (
-                                                                        <div className="flex gap-1 items-center p-1 bg-white dark:bg-white/10 rounded-xl border border-yellow-500">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={editingText}
-                                                                                onChange={(e) => setEditingText(e.target.value)}
-                                                                                onKeyPress={(e) => e.key === 'Enter' && handleEditMessage(msg._id)}
-                                                                                className="flex-1 px-2 py-1 bg-transparent outline-none text-sm text-gray-900 dark:text-white"
-                                                                                autoFocus
-                                                                            />
-                                                                            <button
-                                                                                onClick={() => handleEditMessage(msg._id)}
-                                                                                className="p-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 flex-shrink-0"
-                                                                            >
-                                                                                <Check className="w-3 h-3" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setEditingMessageId(null)}
-                                                                                className="p-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-300 flex-shrink-0"
-                                                                            >
-                                                                                <X className="w-3 h-3" />
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="relative">
-                                                                            <div className={`rounded-2xl px-5 py-3 shadow-sm ${isOwn
-                                                                                ? 'bg-gradient-to-br from-yellow-500 to-orange-500 text-white rounded-tr-none'
-                                                                                : 'bg-white dark:bg-[#252525] text-gray-900 dark:text-white rounded-tl-none border border-gray-100 dark:border-white/5'
-                                                                                }`}>
-                                                                                <p className="leading-relaxed">{msg.content}</p>
-                                                                                {msg.edited && (
-                                                                                    <div className={`text-[9px] mt-0.5 italic ${isOwn ? 'text-yellow-200' : 'text-gray-400'}`}>
-                                                                                        (edited)
-                                                                                    </div>
-                                                                                )}
-
-                                                                                {/* Reactions */}
-                                                                                {msg.reactions && msg.reactions.length > 0 && (
-                                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                        {Object.entries(
-                                                                                            msg.reactions.reduce((acc, r) => {
-                                                                                                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                                                                                return acc;
-                                                                                            }, {})
-                                                                                        ).map(([emoji, count]) => (
-                                                                                            <button
-                                                                                                key={emoji}
-                                                                                                onClick={() => handleReaction(msg._id, emoji)}
-                                                                                                className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 rounded-full text-xs hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
-                                                                                            >
-                                                                                                {emoji} {count}
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                )}
-
-                                                                                <div className={`text-[10px] mt-1 text-right flex items-center justify-end gap-1 ${isOwn ? 'text-yellow-100' : 'text-gray-400'}`}>
-                                                                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                                    {isOwn && (
-                                                                                        <span>{msg.pending ? <Clock className="w-3 h-3 inline" /> : <CheckCheck className="w-3 h-3 inline" />}</span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {/* Emoji Reaction Picker - Shows when React is clicked */}
-                                                                            <AnimatePresence>
-                                                                                {reactionPickerMessageId === msg._id && (
-                                                                                    <>
-                                                                                        <div
-                                                                                            className="fixed inset-0 z-10"
-                                                                                            onClick={() => setReactionPickerMessageId(null)}
-                                                                                        />
-                                                                                        <motion.div
-                                                                                            initial={{ opacity: 0, scale: 0.9 }}
-                                                                                            animate={{ opacity: 1, scale: 1 }}
-                                                                                            exit={{ opacity: 0, scale: 0.9 }}
-                                                                                            className={`absolute ${isOwn ? 'right-0' : 'left-0'} -top-12 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 p-1.5 flex gap-1 z-20`}
-                                                                                        >
-                                                                                            {EMOJI_OPTIONS.map(emoji => (
-                                                                                                <button
-                                                                                                    key={emoji}
-                                                                                                    onClick={() => {
-                                                                                                        handleReaction(msg._id, emoji);
-                                                                                                        setReactionPickerMessageId(null);
-                                                                                                    }}
-                                                                                                    className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-base w-8 h-8 flex items-center justify-center"
-                                                                                                >
-                                                                                                    {emoji}
-                                                                                                </button>
-                                                                                            ))}
-                                                                                        </motion.div>
-                                                                                    </>
-                                                                                )}
-                                                                            </AnimatePresence>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                {Object.entries(groupMessagesByDate(messages)).map(([dateLabel, groupMessages]) => (
+                                                    <React.Fragment key={dateLabel}>
+                                                        <div className="text-center py-4">
+                                                            <div className="inline-block px-3 py-1 rounded-full bg-gray-200 dark:bg-white/10 backdrop-blur-md">
+                                                                <p className="text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">{dateLabel}</p>
                                                             </div>
-                                                        </motion.div>
-                                                    );
-                                                })}
+                                                        </div>
+                                                        {groupMessages.map((msg, index) => {
+                                                            const isOwn = msg.sender._id === currentUser._id || msg.sender === currentUser._id;
+                                                            const isEditing = editingMessageId === msg._id;
+                                                            const isMenuOpen = messageMenuOpen === msg._id;
+
+                                                            // Check if message is within 15 minutes (editable window)
+                                                            const messageAge = new Date() - new Date(msg.createdAt);
+                                                            const isEditableTime = messageAge < 15 * 60 * 1000; // 15 minutes in milliseconds
+
+                                                            return (
+                                                                <motion.div
+                                                                    key={msg._id || index}
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} group relative`}
+                                                                >
+                                                                    <div className={`flex items-end gap-1 max-w-[75%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                                        {/* Message Menu Icon - WhatsApp Style */}
+                                                                        {!isEditing && (
+                                                                            <div className="relative flex items-center">
+                                                                                <button
+                                                                                    onClick={() => setMessageMenuOpen(isMenuOpen ? null : msg._id)}
+                                                                                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                                >
+                                                                                    <ChevronDown className="w-4 h-4" />
+                                                                                </button>
+
+                                                                                {/* Dropdown Menu */}
+                                                                                <AnimatePresence>
+                                                                                    {isMenuOpen && (
+                                                                                        <>
+                                                                                            {/* Backdrop to close menu */}
+                                                                                            <div
+                                                                                                className="fixed inset-0 z-10"
+                                                                                                onClick={() => setMessageMenuOpen(null)}
+                                                                                            />
+                                                                                            <motion.div
+                                                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                                                className={`absolute ${isOwn ? 'right-0' : 'left-0'} top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 py-1 z-20 min-w-[160px]`}
+                                                                                            >
+                                                                                                {/* React Option */}
+                                                                                                <button
+                                                                                                    onClick={() => {
+                                                                                                        setReactionPickerMessageId(msg._id);
+                                                                                                        setMessageMenuOpen(null);
+                                                                                                    }}
+                                                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
+                                                                                                >
+                                                                                                    <Smile className="w-4 h-4" />
+                                                                                                    <span>React</span>
+                                                                                                </button>
+
+                                                                                                {/* Copy Option */}
+                                                                                                <button
+                                                                                                    onClick={() => {
+                                                                                                        handleCopyMessage(msg.content);
+                                                                                                        setMessageMenuOpen(null);
+                                                                                                    }}
+                                                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
+                                                                                                >
+                                                                                                    <Copy className="w-4 h-4" />
+                                                                                                    <span>Copy</span>
+                                                                                                </button>
+
+                                                                                                {/* Edit Option - Only for own messages within 15 minutes */}
+                                                                                                {isOwn && isEditableTime && (
+                                                                                                    <button
+                                                                                                        onClick={() => {
+                                                                                                            setEditingMessageId(msg._id);
+                                                                                                            setEditingText(msg.content);
+                                                                                                            setMessageMenuOpen(null);
+                                                                                                        }}
+                                                                                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-3"
+                                                                                                    >
+                                                                                                        <Edit2 className="w-4 h-4" />
+                                                                                                        <span>Edit</span>
+                                                                                                    </button>
+                                                                                                )}
+
+                                                                                                {/* Delete Option - Only for own messages */}
+                                                                                                {isOwn && (
+                                                                                                    <button
+                                                                                                        onClick={() => {
+                                                                                                            setDeleteConfirm(msg._id);
+                                                                                                            setMessageMenuOpen(null);
+                                                                                                        }}
+                                                                                                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3"
+                                                                                                    >
+                                                                                                        <Trash2 className="w-4 h-4" />
+                                                                                                        <span>Delete</span>
+                                                                                                    </button>
+                                                                                                )}
+                                                                                            </motion.div>
+                                                                                        </>
+                                                                                    )}
+                                                                                </AnimatePresence>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Message Content */}
+                                                                        <div className="flex-1 min-w-0">
+                                                                            {isEditing ? (
+                                                                                <div className="flex gap-1 items-center p-1 bg-white dark:bg-white/10 rounded-xl border border-yellow-500">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={editingText}
+                                                                                        onChange={(e) => setEditingText(e.target.value)}
+                                                                                        onKeyPress={(e) => e.key === 'Enter' && handleEditMessage(msg._id)}
+                                                                                        className="flex-1 px-2 py-1 bg-transparent outline-none text-sm text-gray-900 dark:text-white"
+                                                                                        autoFocus
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={() => handleEditMessage(msg._id)}
+                                                                                        className="p-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 flex-shrink-0"
+                                                                                    >
+                                                                                        <Check className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => setEditingMessageId(null)}
+                                                                                        className="p-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-300 flex-shrink-0"
+                                                                                    >
+                                                                                        <X className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="relative">
+                                                                                    <div className={`rounded-2xl px-5 py-3 shadow-sm ${isOwn
+                                                                                        ? 'bg-gradient-to-br from-yellow-500 to-orange-500 text-white rounded-tr-none'
+                                                                                        : 'bg-white dark:bg-[#252525] text-gray-900 dark:text-white rounded-tl-none border border-gray-100 dark:border-white/5'
+                                                                                        }`}>
+                                                                                        <p className="leading-relaxed">{msg.content}</p>
+                                                                                        {msg.edited && (
+                                                                                            <div className={`text-[9px] mt-0.5 italic ${isOwn ? 'text-yellow-200' : 'text-gray-400'}`}>
+                                                                                                (edited)
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Reactions */}
+                                                                                        {msg.reactions && msg.reactions.length > 0 && (
+                                                                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                                {Object.entries(
+                                                                                                    msg.reactions.reduce((acc, r) => {
+                                                                                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                                                                                        return acc;
+                                                                                                    }, {})
+                                                                                                ).map(([emoji, count]) => (
+                                                                                                    <button
+                                                                                                        key={emoji}
+                                                                                                        onClick={() => handleReaction(msg._id, emoji)}
+                                                                                                        className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 rounded-full text-xs hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+                                                                                                    >
+                                                                                                        {emoji} {count}
+                                                                                                    </button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        <div className={`text-[10px] mt-1 text-right flex items-center justify-end gap-1 ${isOwn ? 'text-yellow-100' : 'text-gray-400'}`}>
+                                                                                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                                            {isOwn && (
+                                                                                                <span>{msg.pending ? <Clock className="w-3 h-3 inline" /> : <CheckCheck className="w-3 h-3 inline" />}</span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    {/* Emoji Reaction Picker - Shows when React is clicked */}
+                                                                                    <AnimatePresence>
+                                                                                        {reactionPickerMessageId === msg._id && (
+                                                                                            <>
+                                                                                                <div
+                                                                                                    className="fixed inset-0 z-10"
+                                                                                                    onClick={() => setReactionPickerMessageId(null)}
+                                                                                                />
+                                                                                                <motion.div
+                                                                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                                                                    animate={{ opacity: 1, scale: 1 }}
+                                                                                                    exit={{ opacity: 0, scale: 0.9 }}
+                                                                                                    className={`absolute ${isOwn ? 'right-0' : 'left-0'} -top-12 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 p-1.5 flex gap-1 z-20`}
+                                                                                                >
+                                                                                                    {EMOJI_OPTIONS.map(emoji => (
+                                                                                                        <button
+                                                                                                            key={emoji}
+                                                                                                            onClick={() => {
+                                                                                                                handleReaction(msg._id, emoji);
+                                                                                                                setReactionPickerMessageId(null);
+                                                                                                            }}
+                                                                                                            className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-base w-8 h-8 flex items-center justify-center"
+                                                                                                        >
+                                                                                                            {emoji}
+                                                                                                        </button>
+                                                                                                    ))}
+                                                                                                </motion.div>
+                                                                                            </>
+                                                                                        )}
+                                                                                    </AnimatePresence>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                ))}
                                             </>
                                         )}
                                         <div ref={messagesEndRef} />

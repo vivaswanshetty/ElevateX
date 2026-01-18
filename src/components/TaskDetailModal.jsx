@@ -6,6 +6,7 @@ import { X, Send, Clock, DollarSign, User, MessageSquare, CheckCircle, AlertCirc
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import UserProfileModal from './UserProfileModal';
+import { formatTime, groupMessagesByDate } from '../utils/dateUtils';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '💯', '✨'];
 
@@ -446,174 +447,183 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                     <p className="text-xs">Start the conversation!</p>
                                                 </div>
                                             ) : (
-                                                task.chat.map((msg, idx) => {
-                                                    const isOwnMessage = msg.user === currentUser?._id || msg.from === currentUser?.name;
-                                                    const isEditing = editingMessageId === msg._id;
-                                                    const isHovered = hoveredMessageId === msg._id;
-
-                                                    return (
-                                                        <motion.div
-                                                            key={msg._id || idx}
-                                                            initial={{ opacity: 0, y: 10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            transition={{ duration: 0.2 }}
-                                                            className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} group relative`}
-                                                            onMouseEnter={() => setHoveredMessageId(msg._id)}
-                                                            onMouseLeave={() => setHoveredMessageId(null)}
-                                                        >
-                                                            {/* Action Buttons - Positioned Above Message */}
-                                                            {isHovered && !isEditing && (
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, y: -5 }}
-                                                                    animate={{ opacity: 1, y: 0 }}
-                                                                    className={`flex gap-1 mb-1 ${isOwnMessage ? 'mr-2' : 'ml-9'} relative`}
-                                                                >
-                                                                    {isOwnMessage && (
-                                                                        <>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setEditingMessageId(msg._id);
-                                                                                    setEditingText(msg.text);
-                                                                                }}
-                                                                                className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                                title="Edit"
-                                                                            >
-                                                                                <Edit2 className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setDeleteConfirm(msg._id)}
-                                                                                className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm"
-                                                                                title="Delete"
-                                                                            >
-                                                                                <Trash2 className="w-3 h-3 text-red-500" />
-                                                                            </button>
-                                                                        </>
-                                                                    )}
-                                                                    <div className="relative">
-                                                                        <button
-                                                                            onClick={() => setReactionPickerMessageId(reactionPickerMessageId === msg._id ? null : msg._id)}
-                                                                            className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                            title="React"
-                                                                        >
-                                                                            <Smile className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                        </button>
-
-                                                                        {/* Emoji Picker for Reactions */}
-                                                                        {reactionPickerMessageId === msg._id && (
-                                                                            <motion.div
-                                                                                initial={{ opacity: 0, scale: 0.9, y: -5 }}
-                                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                className={`absolute top-full mt-1 ${isOwnMessage ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 p-1.5 grid grid-cols-4 gap-1 z-30 w-32`}
-                                                                                onClick={(e) => e.stopPropagation()}
-                                                                            >
-                                                                                {EMOJI_OPTIONS.map(emoji => (
-                                                                                    <button
-                                                                                        key={emoji}
-                                                                                        onClick={() => {
-                                                                                            handleReaction(msg._id, emoji);
-                                                                                            setReactionPickerMessageId(null);
-                                                                                        }}
-                                                                                        className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-base flex items-center justify-center aspect-square"
-                                                                                    >
-                                                                                        {emoji}
-                                                                                    </button>
-                                                                                ))}
-                                                                            </motion.div>
-                                                                        )}
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => handleCopyMessage(msg.text)}
-                                                                        className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                        title="Copy"
-                                                                    >
-                                                                        {copiedMessageId === msg.text ? (
-                                                                            <Check className="w-3 h-3 text-green-500" />
-                                                                        ) : (
-                                                                            <Copy className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                        )}
-                                                                    </button>
-                                                                </motion.div>
-                                                            )}
-
-                                                            <div className={`flex items-end gap-2 max-w-[75%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                                {/* Avatar */}
-                                                                {!isOwnMessage && (
-                                                                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                                                                        {msg.from?.charAt(0) || 'U'}
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Message Content */}
-                                                                <div className="flex-1 min-w-0">
-                                                                    {isEditing ? (
-                                                                        <div className="flex gap-1 items-center p-1 bg-white dark:bg-white/10 rounded-xl border border-indigo-500">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={editingText}
-                                                                                onChange={(e) => setEditingText(e.target.value)}
-                                                                                onKeyPress={(e) => e.key === 'Enter' && handleEditMessage(msg._id)}
-                                                                                className="flex-1 px-2 py-1 bg-transparent outline-none text-sm text-gray-900 dark:text-white"
-                                                                                autoFocus
-                                                                            />
-                                                                            <button
-                                                                                onClick={() => handleEditMessage(msg._id)}
-                                                                                className="p-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 flex-shrink-0"
-                                                                            >
-                                                                                <Check className="w-3 h-3" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setEditingMessageId(null)}
-                                                                                className="p-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-300 flex-shrink-0"
-                                                                            >
-                                                                                <X className="w-3 h-3" />
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className={`px-3 py-2 rounded-2xl text-sm ${isOwnMessage
-                                                                            ? 'bg-indigo-600 text-white rounded-br-sm'
-                                                                            : 'bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-200 dark:border-white/10'
-                                                                            }`}>
-                                                                            {!isOwnMessage && (
-                                                                                <div className="font-bold text-[10px] mb-0.5 opacity-70">{msg.from}</div>
-                                                                            )}
-                                                                            <div className="break-words">{msg.text}</div>
-                                                                            {msg.edited && (
-                                                                                <div className={`text-[9px] mt-0.5 italic ${isOwnMessage ? 'text-indigo-200' : 'text-gray-400'}`}>
-                                                                                    (edited)
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Reactions */}
-                                                                            {msg.reactions && msg.reactions.length > 0 && (
-                                                                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                    {Object.entries(
-                                                                                        msg.reactions.reduce((acc, r) => {
-                                                                                            acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                                                                            return acc;
-                                                                                        }, {})
-                                                                                    ).map(([emoji, count]) => (
-                                                                                        <button
-                                                                                            key={emoji}
-                                                                                            onClick={() => handleReaction(msg._id, emoji)}
-                                                                                            className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 rounded-full text-xs hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
-                                                                                        >
-                                                                                            {emoji} {count}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                Object.entries(groupMessagesByDate(task.chat)).map(([dateLabel, groupMessages]) => (
+                                                    <React.Fragment key={dateLabel}>
+                                                        <div className="flex items-center justify-center my-4">
+                                                            <div className="bg-gray-200 dark:bg-white/10 px-3 py-1 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                                {dateLabel}
                                                             </div>
+                                                        </div>
+                                                        {groupMessages.map((msg, idx) => {
+                                                            const isOwnMessage = msg.user === currentUser?._id || msg.from === currentUser?.name;
+                                                            const isEditing = editingMessageId === msg._id;
+                                                            const isHovered = hoveredMessageId === msg._id;
 
-                                                            {/* Timestamp */}
-                                                            <span className={`text-[10px] text-gray-400 mt-0.5 ${isOwnMessage ? 'mr-2' : 'ml-9'}`}>
-                                                                {new Date(msg.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                        </motion.div>
-                                                    );
-                                                })
+                                                            return (
+                                                                <motion.div
+                                                                    key={msg._id || idx}
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} group relative`}
+                                                                    onMouseEnter={() => setHoveredMessageId(msg._id)}
+                                                                    onMouseLeave={() => setHoveredMessageId(null)}
+                                                                >
+                                                                    {/* Action Buttons - Positioned Above Message */}
+                                                                    {isHovered && !isEditing && (
+                                                                        <motion.div
+                                                                            initial={{ opacity: 0, y: -5 }}
+                                                                            animate={{ opacity: 1, y: 0 }}
+                                                                            className={`flex gap-1 mb-1 ${isOwnMessage ? 'mr-2' : 'ml-9'} relative`}
+                                                                        >
+                                                                            {isOwnMessage && (
+                                                                                <>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setEditingMessageId(msg._id);
+                                                                                            setEditingText(msg.text);
+                                                                                        }}
+                                                                                        className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
+                                                                                        title="Edit"
+                                                                                    >
+                                                                                        <Edit2 className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => setDeleteConfirm(msg._id)}
+                                                                                        className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm"
+                                                                                        title="Delete"
+                                                                                    >
+                                                                                        <Trash2 className="w-3 h-3 text-red-500" />
+                                                                                    </button>
+                                                                                </>
+                                                                            )}
+                                                                            <div className="relative">
+                                                                                <button
+                                                                                    onClick={() => setReactionPickerMessageId(reactionPickerMessageId === msg._id ? null : msg._id)}
+                                                                                    className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
+                                                                                    title="React"
+                                                                                >
+                                                                                    <Smile className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                                                                </button>
+
+                                                                                {/* Emoji Picker for Reactions */}
+                                                                                {reactionPickerMessageId === msg._id && (
+                                                                                    <motion.div
+                                                                                        initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                        className={`absolute top-full mt-1 ${isOwnMessage ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 p-1.5 grid grid-cols-4 gap-1 z-30 w-32`}
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                    >
+                                                                                        {EMOJI_OPTIONS.map(emoji => (
+                                                                                            <button
+                                                                                                key={emoji}
+                                                                                                onClick={() => {
+                                                                                                    handleReaction(msg._id, emoji);
+                                                                                                    setReactionPickerMessageId(null);
+                                                                                                }}
+                                                                                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-base flex items-center justify-center aspect-square"
+                                                                                            >
+                                                                                                {emoji}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </motion.div>
+                                                                                )}
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleCopyMessage(msg.text)}
+                                                                                className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
+                                                                                title="Copy"
+                                                                            >
+                                                                                {copiedMessageId === msg.text ? (
+                                                                                    <Check className="w-3 h-3 text-green-500" />
+                                                                                ) : (
+                                                                                    <Copy className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                                                                )}
+                                                                            </button>
+                                                                        </motion.div>
+                                                                    )}
+
+                                                                    <div className={`flex items-end gap-2 max-w-[75%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                                        {/* Avatar */}
+                                                                        {!isOwnMessage && (
+                                                                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
+                                                                                {msg.from?.charAt(0) || 'U'}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Message Content */}
+                                                                        <div className="flex-1 min-w-0">
+                                                                            {isEditing ? (
+                                                                                <div className="flex gap-1 items-center p-1 bg-white dark:bg-white/10 rounded-xl border border-indigo-500">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={editingText}
+                                                                                        onChange={(e) => setEditingText(e.target.value)}
+                                                                                        onKeyPress={(e) => e.key === 'Enter' && handleEditMessage(msg._id)}
+                                                                                        className="flex-1 px-2 py-1 bg-transparent outline-none text-sm text-gray-900 dark:text-white"
+                                                                                        autoFocus
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={() => handleEditMessage(msg._id)}
+                                                                                        className="p-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 flex-shrink-0"
+                                                                                    >
+                                                                                        <Check className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => setEditingMessageId(null)}
+                                                                                        className="p-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-300 flex-shrink-0"
+                                                                                    >
+                                                                                        <X className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className={`px-3 py-2 rounded-2xl text-sm ${isOwnMessage
+                                                                                    ? 'bg-indigo-600 text-white rounded-br-sm'
+                                                                                    : 'bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-200 dark:border-white/10'
+                                                                                    }`}>
+                                                                                    {!isOwnMessage && (
+                                                                                        <div className="font-bold text-[10px] mb-0.5 opacity-70">{msg.from}</div>
+                                                                                    )}
+                                                                                    <div className="break-words">{msg.text}</div>
+                                                                                    {msg.edited && (
+                                                                                        <div className={`text-[9px] mt-0.5 italic ${isOwnMessage ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                                                                            (edited)
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* Reactions */}
+                                                                                    {msg.reactions && msg.reactions.length > 0 && (
+                                                                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                            {Object.entries(
+                                                                                                msg.reactions.reduce((acc, r) => {
+                                                                                                    acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                                                                                    return acc;
+                                                                                                }, {})
+                                                                                            ).map(([emoji, count]) => (
+                                                                                                <button
+                                                                                                    key={emoji}
+                                                                                                    onClick={() => handleReaction(msg._id, emoji)}
+                                                                                                    className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 rounded-full text-xs hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+                                                                                                >
+                                                                                                    {emoji} {count}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Timestamp */}
+                                                                    <span className={`text-[10px] text-gray-400 mt-0.5 ${isOwnMessage ? 'mr-2' : 'ml-9'}`}>
+                                                                        {formatTime(msg.at)}
+                                                                    </span>
+                                                                </motion.div>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                ))
                                             )}
                                             <div ref={chatEndRef} />
                                         </div>
