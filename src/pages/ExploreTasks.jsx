@@ -36,7 +36,7 @@ const ExploreTasks = () => {
 
     const filteredTasks = activeTasks.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            task.desc.toLowerCase().includes(searchQuery.toLowerCase());
+            (task.description || "").toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === "All" || task.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
@@ -279,8 +279,8 @@ const ExploreTasks = () => {
                                         setFeaturedIndex(index);
                                     }}
                                     className={`transition-all ${index === featuredIndex % trendingTasks.length
-                                            ? 'w-8 h-2 bg-white'
-                                            : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+                                        ? 'w-8 h-2 bg-white'
+                                        : 'w-2 h-2 bg-white/40 hover:bg-white/60'
                                         } rounded-full`}
                                     whileHover={{ scale: 1.2 }}
                                     whileTap={{ scale: 0.9 }}
