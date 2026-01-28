@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import Navbar from './components/Navbar';
@@ -45,6 +46,7 @@ function App() {
                 <Router>
                     <ScrollToTop />
                     <CookieConsent />
+                    <SpeedInsights />
                     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white overflow-x-hidden flex flex-col transition-colors duration-300">
                         <Navbar />
                         <main className="flex-grow">
