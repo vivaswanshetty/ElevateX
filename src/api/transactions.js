@@ -1,5 +1,15 @@
 import api from './axios';
 
+export const createRazorpayOrder = async (amount) => {
+    const response = await api.post('/payments/create-order', { amount });
+    return response.data;
+};
+
+export const verifyRazorpayPayment = async (paymentData) => {
+    const response = await api.post('/payments/verify-payment', paymentData);
+    return response.data;
+};
+
 export const getTransactions = async () => {
     const response = await api.get(`/transactions?t=${Date.now()}`);
     return response.data;

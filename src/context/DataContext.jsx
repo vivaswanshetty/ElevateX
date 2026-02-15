@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { createTask, getTasks, applyForTask as apiApply, assignTask as apiAssign, completeTask as apiComplete, addTaskMessage as apiAddTaskMessage, updateTask as apiUpdate, deleteTask as apiDelete } from '../api/tasks';
-import { getTransactions, depositCoins as apiDeposit, withdrawCoins as apiWithdraw } from '../api/transactions';
+
+import { getTransactions, depositCoins as apiDeposit, withdrawCoins as apiWithdraw, createRazorpayOrder, verifyRazorpayPayment } from '../api/transactions';
 
 const DataContext = createContext();
 
@@ -148,43 +149,72 @@ export const DataProvider = ({ children }) => {
         }
     };
 
-    const depositCoins = async (amount) => {
-        if (!currentUser) return;
-
-        // Optimistic update
-        const tempTx = {
-            _id: 'temp-' + Date.now(),
-            user: currentUser._id,
-            type: 'deposit',
-            amount: Number(amount),
-            description: 'Deposit',
-            createdAt: new Date().toISOString()
-        };
-        setTransactions(prev => [tempTx, ...prev]);
-
+    const initiateDeposit = async (amount) => {
+        if (!currentUser) throw new Error('Must be logged in');
         try {
-            await apiDeposit(amount);
+            // 1. Create Order
+            const { orderId, keyId, amount: orderAmount, currency } = await createRazorpayOrder(amount);
 
-            // Background refresh
-            (async () => {
-                try {
-                    if (refreshProfile) await refreshProfile();
-                    // Small delay for DB consistency
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    const txs = await getTransactions();
-                    setTransactions(txs);
-                } catch (err) {
-                    console.error("Background refresh failed", err);
+            // 2. Open Razorpay Popup
+            const options = {
+                key: keyId,
+                amount: orderAmount,
+                currency: currency,
+                name: "ElevateX",
+                description: "Purchase ElevateX Coins",
+                image: "https://elevatex-platform.vercel.app/logo.png", // Replace with your logo
+                order_id: orderId,
+                handler: async function (response) {
+                    try {
+                        // 3. Verify Payment
+                        await verifyRazorpayPayment({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            amount: amount
+                        });
+
+                        // 4. Refresh Data
+                        if (refreshProfile) await refreshProfile();
+                        const txs = await getTransactions();
+                        setTransactions(txs);
+
+                        // We use a custom event or callback if needed, but for now we just rely on state update
+                        // The component calling this will need to handle success UX based on promise resolution
+                        return true;
+                    } catch (verifyError) {
+                        console.error("Payment Verification Failed", verifyError);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                prefill: {
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    contact: "" // You can add phone if you have it
+                },
+                theme: {
+                    color: "#3399cc"
                 }
-            })();
+            };
 
-            return amount;
+            const rzp1 = new window.Razorpay(options);
+            rzp1.on('payment.failed', function (response) {
+                alert(response.error.description);
+            });
+            rzp1.open();
+
         } catch (error) {
-            console.error("Deposit failed", error);
-            // Rollback on error
-            setTransactions(prev => prev.filter(t => t._id !== tempTx._id));
-            throw error;
+            console.error("Deposit Initiation Failed", error);
+            throw error.response?.data?.message || "Failed to initiate deposit";
         }
+    };
+
+    // No longer needed for frontend calls, internalized in initiateDeposit handler
+    const verifyDeposit = async () => { };
+
+    const depositCoins = async (amount) => {
+        // Legacy deposit (used for testing if Stripe fails) - or we can keep it for admin
+        return initiateDeposit(amount);
     };
 
     const withdrawCoins = async (amount) => {
@@ -235,7 +265,10 @@ export const DataProvider = ({ children }) => {
             assignTask,
             completeTask,
             addChatMessage,
+
             depositCoins,
+            initiateDeposit,
+            verifyDeposit,
             withdrawCoins,
             updateTask,
             deleteTask,

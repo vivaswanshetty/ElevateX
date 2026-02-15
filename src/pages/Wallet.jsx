@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, History, CreditCard, TrendingUp, DollarSign, Plus, Minus } from 'lucide-react';
@@ -9,13 +10,18 @@ import TransactionModal from '../components/TransactionModal';
 
 const Wallet = () => {
     const { currentUser, getUserProfile } = useAuth();
-    const { transactions, depositCoins, withdrawCoins } = useData();
+    const { transactions, initiateDeposit, withdrawCoins, verifyDeposit } = useData();
     const [showAuth, setShowAuth] = useState(false);
     const [toast, setToast] = useState(null);
     const [transactionModal, setTransactionModal] = useState({ isOpen: false, type: 'deposit' });
     const [loading, setLoading] = useState(false);
+    // const [searchParams] = useSearchParams(); // Not needed for Razorpay Modal flow
+    const navigate = useNavigate();
 
     const user = getUserProfile();
+
+    // Razorpay uses a modal, so we don't need to check for URL params on load
+    // useEffect(() => { ... }, []);
 
     if (!currentUser) {
         return (
@@ -37,8 +43,11 @@ const Wallet = () => {
         setLoading(true);
         try {
             if (transactionModal.type === 'deposit') {
-                await depositCoins(amount);
-                showToast('deposit', 'Deposit Successful', amount);
+                await initiateDeposit(amount);
+                // The Razorpay modal handles the rest asynchronously. 
+                // We could add a listener or callback in DataContext to show a success toast here, 
+                // but for now the user will see the success state in the modal.
+                // We'll close our local modal immediately.
             } else {
                 await withdrawCoins(amount);
                 showToast('withdraw', 'Withdrawal Successful', amount);

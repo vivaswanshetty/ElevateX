@@ -94,6 +94,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/duels', require('./routes/duelRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
 
 // Health check
 app.get('/', (req, res) => {
