@@ -224,7 +224,14 @@ const completeTask = async (req, res) => {
         if (fulfiller) {
             // Give coins and XP to fulfiller
             fulfiller.coins = (fulfiller.coins || 0) + task.coins;
-            fulfiller.xp = (fulfiller.xp || 0) + 30; // XP for completing task
+
+            // PROPORTIONAL XP LOGIC:
+            // 10 XP base + (Coins / 10) * 5
+            // Example: 100 coin task -> 10 + 50 = 60 XP
+            // Example: 1000 coin task -> 10 + 500 = 510 XP
+            const xpEarned = 10 + Math.floor(task.coins / 2); // 1 Coin = 0.5 XP (Simpler)
+
+            fulfiller.xp = (fulfiller.xp || 0) + xpEarned;
 
             // Focus Alchemy: Award a random essence
             const essenceTypes = ['focus', 'creativity', 'discipline'];
@@ -239,10 +246,15 @@ const completeTask = async (req, res) => {
             // Create Transaction for fulfiller (receiving payment)
             await Transaction.create({
                 user: fulfiller._id,
-                type: 'escrow-release',
+                type: 'deposit', // Changed from 'escrow-release' to 'deposit' so it shows up as Income clearly 
+                // OR better yet, keep 'payment' if frontend handles it? 
+                // Let's use 'deposit' description handles context.
+                // Wait, 'escrow-release' might be filtered out in wallet?
+                // Wallet filters for 'deposit' or 'withdraw'.
+                // So type MUST be 'deposit' to show as Green Income.
                 amount: task.coins,
                 task: task._id,
-                description: `Payment received for completing: ${task.title}`
+                description: `Payment for Task: ${task.title}`
             });
 
             // Emit resonance event
