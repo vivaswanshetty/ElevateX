@@ -305,7 +305,7 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                 {/* XP Display */}
                                                 <div className="flex items-center gap-1.5 font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-zap text-purple-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                                                    <span>+{Math.floor(10 + (task.coins / 2))} XP</span>
+                                                    <span>+{Math.floor(10 + (task.coins / 10))} XP</span>
                                                 </div>
                                             </div>
                                         </div>

@@ -262,10 +262,10 @@ const completeTask = async (req, res) => {
             fulfiller.coins = (fulfiller.coins || 0) + task.coins;
 
             // PROPORTIONAL XP LOGIC:
-            // 10 XP base + (Coins / 10) * 5
-            // Example: 100 coin task -> 10 + 50 = 60 XP
-            // Example: 1000 coin task -> 10 + 500 = 510 XP
-            const xpEarned = 10 + Math.floor(task.coins / 2); // 1 Coin = 0.5 XP (Simpler)
+            // 10 XP base + (Coins / 10)
+            // Example: 100 coin task -> 10 + 10 = 20 XP
+            // Example: 1000 coin task -> 10 + 100 = 110 XP
+            const xpEarned = 10 + Math.floor(task.coins / 10);
 
             fulfiller.xp = (fulfiller.xp || 0) + xpEarned;
 
