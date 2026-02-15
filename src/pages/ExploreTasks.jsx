@@ -292,6 +292,77 @@ const ExploreTasks = () => {
                 </motion.div>
             )}
 
+            {/* --- BEGINNER / STARTER SECTION --- */}
+            {selectedCategory === 'All' && !searchQuery && activeTasks.some(t => t.coins < 500) && (
+                <div className="mb-16">
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        className="flex items-center gap-3 mb-6"
+                    >
+                        <div className="p-2 bg-green-500/20 text-green-500 rounded-lg">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold dark:text-white">Beginner Zone 🚀</h2>
+                            <p className="text-gray-500 text-sm">Perfect for starting your journey. Low barrier, quick XP.</p>
+                        </div>
+                    </motion.div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {activeTasks
+                            .filter(t => t.coins < 500)
+                            .slice(0, 4) // Show top 4 beginner tasks
+                            .map((task, index) => (
+                                <motion.div
+                                    key={task._id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: index * 0.1 }}
+                                    whileHover={{ y: -8 }}
+                                    onClick={() => setSelectedTaskId(task._id)}
+                                    className="cursor-pointer"
+                                >
+                                    <div className="relative group">
+                                        {/* Custom Card styling for Beginner tasks */}
+                                        <div className="absolute -inset-0.5 bg-gradient-to-br from-green-500 to-teal-500 rounded-2xl opacity-20 group-hover:opacity-60 blur transition duration-300"></div>
+                                        <div className="relative bg-white dark:bg-[#111] p-5 rounded-2xl border border-gray-200 dark:border-white/10 h-full flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <span className="px-3 py-1 bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold rounded-full border border-green-500/20">
+                                                        Beginner Friendly
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 font-mono">
+                                                        {new Date(task.createdAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <h3 className="font-bold text-lg dark:text-white mb-2 line-clamp-1">{task.title}</h3>
+                                                <p className="text-gray-500 text-sm line-clamp-2 mb-4">{task.description}</p>
+                                            </div>
+
+                                            <div className="flex items-center justify-between border-t border-gray-200 dark:border-white/5 pt-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 bg-yellow-500/10 rounded-lg">
+                                                        <img src="https://cdn-icons-png.flaticon.com/512/138/138292.png" alt="coin" className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="font-bold dark:text-white">{task.coins}</span>
+                                                </div>
+                                                <button className="text-sm font-bold text-green-500 group-hover:underline">
+                                                    Apply Now
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))
+                        }
+                    </div>
+                </div>
+            )}
+            {/* ---------------------------------- */}
+
             {/* Filters & Search */}
             <div className="flex flex-col gap-8 mb-12">
                 <motion.div
