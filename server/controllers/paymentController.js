@@ -3,16 +3,16 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
 // @desc    Create Razorpay Order for deposit
 // @route   POST /api/payments/create-order
 // @access  Private
 exports.createOrder = async (req, res) => {
     try {
+        const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET
+        });
+
         const { amount } = req.body;
 
         if (!amount || amount <= 0) {
@@ -32,7 +32,7 @@ exports.createOrder = async (req, res) => {
         const options = {
             amount: amountInPaise,
             currency: "INR",
-            receipt: `receipt_${Date.now()}_${req.user._id}`,
+            receipt: `rcpt_${Date.now().toString().slice(-4)}_${req.user._id.toString().slice(-8)}`, // Keep short!
             notes: {
                 userId: req.user._id.toString(),
                 coinAmount: amount.toString()
