@@ -349,8 +349,8 @@ const ExploreTasks = () => {
                                                     </div>
                                                     <span className="font-bold dark:text-white">{task.coins}</span>
                                                 </div>
-                                                <button className="text-sm font-bold text-green-500 group-hover:underline">
-                                                    Apply Now
+                                                <button className="text-xs font-bold text-green-500 group-hover:underline flex items-center gap-1">
+                                                    Apply <span className="text-[10px] text-gray-400 font-normal no-underline">(-5c)</span>
                                                 </button>
                                             </div>
                                         </div>

@@ -398,10 +398,22 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                 {task.status === 'Open' && currentUser?._id !== task.createdBy?._id && !task.applicants?.some(a => (a.user?._id || a.user) === currentUser?._id) && (
                                                     <button
                                                         onClick={handleApply}
-                                                        disabled={actionLoading}
-                                                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:opacity-50"
+                                                        disabled={actionLoading || (currentUser.coins < 5)}
+                                                        className={`px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2 ${currentUser.coins < 5
+                                                                ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                                                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                                            }`}
+                                                        title={currentUser.coins < 5 ? "Insufficient coins (Need 5)" : ""}
                                                     >
-                                                        {actionLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Apply Now'}
+                                                        {actionLoading ? <Loader className="w-4 h-4 animate-spin" /> : (
+                                                            <>
+                                                                <span>Apply</span>
+                                                                <span className="bg-black/20 px-1.5 py-0.5 rounded text-xs ml-1 flex items-center">
+                                                                    <span className="opacity-70 text-[10px] mr-0.5">COST:</span> 5
+                                                                    <img src="https://cdn-icons-png.flaticon.com/512/138/138292.png" alt="c" className="w-2.5 h-2.5 ml-0.5" />
+                                                                </span>
+                                                            </>
+                                                        )}
                                                     </button>
                                                 )}
 
