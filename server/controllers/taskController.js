@@ -114,9 +114,22 @@ const applyForTask = async (req, res) => {
             return res.status(400).json({ message: 'Already applied' });
         }
 
+        const applicant = await User.findById(req.user._id);
+
+        // --- XP THRESHOLD CHECK ---
+        // For tasks with coins > 500, require XP > 50
+        const HIGH_VALUE_THRESHOLD = 500;
+        const REQUIRED_XP = 50;
+
+        if (task.coins >= HIGH_VALUE_THRESHOLD && applicant.xp < REQUIRED_XP) {
+            return res.status(403).json({
+                message: `Experience Required! This is a high-value task. You need at least ${REQUIRED_XP} XP to apply (You have ${applicant.xp}).`
+            });
+        }
+        // -------------------------
+
         // --- APPLICATION FEE LOGIC ---
         const APPLICATION_FEE = 5; // Configurable
-        const applicant = await User.findById(req.user._id);
 
         if (applicant.coins < APPLICATION_FEE) {
             return res.status(400).json({
