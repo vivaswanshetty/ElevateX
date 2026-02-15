@@ -77,11 +77,13 @@ const TaskCard = ({ task }) => {
                             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">by <span className="text-gray-900 dark:text-gray-200">{creatorName}</span></span>
                         </div>
 
-                        {task.xp && (
-                            <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-                                +{task.xp} XP
+                        {/* XP Reward Calculation: 10 + (Coins / 2) */}
+                        <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
+                            <Zap className="w-3 h-3 text-purple-500 fill-purple-500" />
+                            <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                                +{Math.floor(10 + (Number(task.coins || task.price?.replace(/[^0-9]/g, '') || 0) / 2))} XP
                             </span>
-                        )}
+                        </div>
                     </div>
                 </div>
             </div>
