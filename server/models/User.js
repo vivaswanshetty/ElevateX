@@ -65,7 +65,16 @@ const userSchema = mongoose.Schema({
         tier: { type: String },
         bonus: { type: String },
         craftedAt: { type: Date, default: Date.now }
-    }]
+    }],
+    // Subscription Plan
+    subscription: {
+        plan: { type: String, enum: ['free', 'pro', 'elite'], default: 'free' },
+        startDate: { type: Date },
+        expiryDate: { type: Date },
+        isActive: { type: Boolean, default: true } // True if not expired
+    },
+    // Transaction Limits
+    totalDeposited: { type: Number, default: 0 } // Lifetime deposit tracking
 }, {
     timestamps: true
 });

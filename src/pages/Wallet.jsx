@@ -112,11 +112,16 @@ const Wallet = () => {
                             </div>
 
                             <div className="relative z-10">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-xl">
-                                        <CreditCard className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-xl">
+                                            <CreditCard className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                        </div>
+                                        <span className="text-gray-500 dark:text-gray-400 font-medium tracking-wide text-sm uppercase">Total Balance</span>
                                     </div>
-                                    <span className="text-gray-500 dark:text-gray-400 font-medium tracking-wide text-sm uppercase">Total Balance</span>
+                                    <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-gray-500 dark:text-white/80 uppercase tracking-wider border border-white/10">
+                                        {user.subscription?.plan || 'Free'} Plan
+                                    </span>
                                 </div>
 
                                 <div className="flex items-baseline gap-1 mb-8">
@@ -124,6 +129,26 @@ const Wallet = () => {
                                         {user.coins?.toLocaleString() || 0}
                                     </span>
                                     <span className="text-xl font-bold text-red-500">XP</span>
+                                </div>
+
+                                <div className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                                    <div className="flex justify-between mb-1">
+                                        <span>Deposit Limit</span>
+                                        <span className="font-bold text-gray-900 dark:text-white">
+                                            {user.subscription?.plan === 'elite' ? 'Unlimited' :
+                                                user.subscription?.plan === 'pro' ? '1,000' : '200'} coins/tx
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-white/10 rounded-full h-1.5">
+                                        {/* Progressive bar could go here based on usage, but for now just a static indicator */}
+                                        <div className={`h-1.5 rounded-full ${user.subscription?.plan === 'elite' ? 'w-full bg-gradient-to-r from-yellow-400 to-amber-500' :
+                                            user.subscription?.plan === 'pro' ? 'w-2/3 bg-blue-500' : 'w-1/5 bg-gray-500'}`}></div>
+                                    </div>
+                                    {user.subscription?.plan === 'free' && (
+                                        <button className="text-red-500 text-xs font-bold mt-2 hover:underline">
+                                            Upgrade to Pro for higher limits!
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

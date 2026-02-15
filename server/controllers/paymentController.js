@@ -29,6 +29,26 @@ exports.createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Minimum deposit is 1 coin (2 INR)' });
         }
 
+        // --- SUBSCRIPTION CHECK ---
+        const userPlan = req.user.subscription?.plan || 'free';
+
+        // Define Limits (in Coins) per Transaction
+        const LIMITS = {
+            free: 200,   // Max 200 coins per transaction
+            pro: 1000,   // Max 1000 coins
+            elite: 10000 // effectively unlimited
+        };
+
+        const limit = LIMITS[userPlan];
+
+        if (amount > limit) {
+            return res.status(403).json({
+                success: false,
+                message: `Plan Limit Exceeded! '${userPlan.toUpperCase()}' users can only deposit ${limit} coins per transaction. Upgrade your plan for more.`
+            });
+        }
+        // -------------------------
+
         const options = {
             amount: amountInPaise,
             currency: "INR",
