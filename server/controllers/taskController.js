@@ -114,6 +114,29 @@ const applyForTask = async (req, res) => {
             return res.status(400).json({ message: 'Already applied' });
         }
 
+        // --- APPLICATION FEE LOGIC ---
+        const APPLICATION_FEE = 5; // Configurable
+        const applicant = await User.findById(req.user._id);
+
+        if (applicant.coins < APPLICATION_FEE) {
+            return res.status(400).json({
+                message: `Insufficient coins. You need ${APPLICATION_FEE} coins to apply for this task.`
+            });
+        }
+
+        // Deduct Fee
+        applicant.coins -= APPLICATION_FEE;
+        await applicant.save();
+
+        // Create Transaction
+        await Transaction.create({
+            user: req.user._id,
+            type: 'withdraw', // Or 'fee'
+            amount: APPLICATION_FEE,
+            description: `Application fee for task: ${task.title}`
+        });
+        // -----------------------------
+
         task.applicants.push({ user: req.user._id });
         await task.save();
 
