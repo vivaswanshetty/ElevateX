@@ -19,14 +19,14 @@ exports.createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide a valid amount' });
         }
 
-        // 1 Coin = 10 INR (Example rate)
+        // 1 Coin = 2 INR (Example rate)
         // You can adjust this rate
-        const COIN_RATE = 10;
+        const COIN_RATE = 2;
         const amountInPaise = Math.round(amount * COIN_RATE * 100);
 
         // Ensure minimum charge (Razorpay requires >1 INR usually)
         if (amountInPaise < 100) {
-            return res.status(400).json({ success: false, message: 'Minimum deposit is 1 coin (10 INR)' });
+            return res.status(400).json({ success: false, message: 'Minimum deposit is 1 coin (2 INR)' });
         }
 
         const options = {
