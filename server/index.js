@@ -113,6 +113,7 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({
         success: false,
         message: err.message || 'Internal server error',
+        error: err.toString(), // TEMPORARY: For debugging production 500s
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
 });
