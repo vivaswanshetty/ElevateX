@@ -80,7 +80,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Sanitize data to prevent NoSQL injection
-// app.use(mongoSanitize());
+app.use(mongoSanitize());
 
 // Apply rate limiting to all API routes
 app.use('/api/', apiLimiter);

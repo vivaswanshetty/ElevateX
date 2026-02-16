@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Filter, Code, Palette, Megaphone, PenTool, Database, Video, Music, Briefcase, Coffee, LayoutGrid, Sparkles, TrendingUp, ArrowRight, Clock, Award } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import SEO from '../components/SEO';
 import TaskCard from '../components/TaskCard';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -83,6 +84,10 @@ const ExploreTasks = () => {
 
     return (
         <div className="pt-24 min-h-screen container mx-auto px-6 pb-20">
+            <SEO
+                title="Explore Tasks"
+                description="Browse hundreds of freelance opportunities. Filter by category, difficulty, or reward. Start earning crypto today on ElevateX."
+            />
 
             {/* Header Section */}
             <motion.div

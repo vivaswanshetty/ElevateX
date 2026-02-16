@@ -8,6 +8,7 @@ import TaskCard from '../components/TaskCard';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles, Search, Zap } from 'lucide-react';
+import SEO from '../components/SEO';
 
 // Lazy load below-the-fold components
 const CoreFeatures = React.lazy(() => import('../components/CoreFeatures'));
@@ -45,6 +46,10 @@ const Home = () => {
 
     return (
         <>
+            <SEO
+                title="Home"
+                description="Join ElevateX, the premier gamified freelance marketplace. Use your skills to complete tasks, earn crypto rewards, and level up your professional profile."
+            />
             <div className="pt-16 relative overflow-hidden" style={{ willChange: 'transform' }}>
                 {/* Floating Particles Throughout Home Page - Optimized */}
                 {[...Array(3)].map((_, i) => ( // Reduced from 8 to 3
