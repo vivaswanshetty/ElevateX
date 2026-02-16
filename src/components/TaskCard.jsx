@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Clock, DollarSign, Star, Zap, Calendar, User } from 'lucide-react';
+import { Clock, Star, Zap, Calendar, User, Coins } from 'lucide-react';
 
 const TaskCard = ({ task }) => {
     const formatDate = (dateString) => {
@@ -51,7 +51,7 @@ const TaskCard = ({ task }) => {
                         <div className="flex flex-col">
                             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Reward</span>
                             <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold">
-                                <DollarSign className="w-3.5 h-3.5" />
+                                <Coins className="w-3.5 h-3.5" />
                                 <span>{task.coins || task.price?.replace(' Coins', '')}</span>
                             </div>
                         </div>

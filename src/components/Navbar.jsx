@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap, Wallet, LogOut, User, Sun, Moon, Search, Coins, Home, Compass, Swords, PlusCircle, Trophy, Rss, Users, Bell, MessageSquare, Beaker, Globe } from 'lucide-react';
+import { Menu, X, Zap, Wallet, LogOut, User, Sun, Moon, Search, Coins, Home, Compass, Swords, PlusCircle, Trophy, Rss, Users, Bell, MessageSquare, Beaker, Globe, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
@@ -118,6 +118,7 @@ const Navbar = () => {
         { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
         { name: 'Activity', path: '/activity', icon: Bell },
         { name: 'Messages', path: '/chat', icon: MessageSquare },
+        { name: 'Subscription', path: '/subscription', icon: Crown },
     ];
 
     const menuVariants = {
@@ -352,6 +353,7 @@ const Navbar = () => {
                             { name: 'Feed', path: '/feed', icon: Rss },
                             { name: 'Explore', path: '/explore', icon: Compass },
                             { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
+                            { name: 'Subscription', path: '/subscription', icon: Crown },
                             ...(currentUser ? [
                                 { name: 'Create Task', path: '/create', icon: PlusCircle },
                                 { name: 'Activity', path: '/activity', icon: Bell, badge: unreadCount, badgeColor: 'red' },
@@ -632,6 +634,11 @@ const Navbar = () => {
                                                     <Trophy className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                     {userProfile?.xp || 0} XP
                                                 </Link>
+                                            </div>
+                                            <div className="flex gap-2 relative z-10 mt-2">
+                                                <div className="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-100 dark:bg-white/5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400">
+                                                    Level {Math.floor((userProfile?.xp || 0) / 500) + 1}
+                                                </div>
                                             </div>
                                         </motion.div>
                                     ) : (

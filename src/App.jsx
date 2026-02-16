@@ -24,6 +24,7 @@ import SecurePayments from './pages/SecurePayments';
 import AIMatching from './pages/AIMatching';
 import CommunityEvents from './pages/CommunityEvents';
 import MobileApp from './pages/MobileApp';
+import Subscription from './pages/Subscription';
 
 // Info pages
 import Privacy from './pages/Privacy';
@@ -62,6 +63,7 @@ function App() {
                                 <Route path="/feed" element={<Feed />} />
                                 <Route path="/post/:id" element={<SinglePost />} />
                                 <Route path="/activity" element={<Activity />} />
+                                <Route path="/subscription" element={<Subscription />} />
                                 <Route path="/duel" element={<ProductivityDuel />} />
                                 <Route path="/alchemy" element={<AlchemyLab />} />
                                 <Route path="/resonance" element={<ResonanceRoom />} />

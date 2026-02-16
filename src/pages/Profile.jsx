@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { Edit2, Camera, MapPin, Link as LinkIcon, Briefcase, GraduationCap, Github, Linkedin, Twitter, Globe, Award, Coins, Layers, Calendar, Settings, Heart, MessageCircle, Trash2, Code, Sparkles, Zap, Coffee, Music, Sun, Cloud, Flag, Bookmark, Compass, Rocket, Smile, Cpu } from 'lucide-react';
+import { Edit2, Camera, MapPin, Link as LinkIcon, Briefcase, GraduationCap, Github, Linkedin, Twitter, Globe, Award, Coins, Layers, Calendar, Settings, Heart, MessageCircle, Trash2, Code, Sparkles, Zap, Coffee, Music, Sun, Cloud, Flag, Bookmark, Compass, Rocket, Smile, Cpu, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { changePassword as apiChangePassword } from '../api/auth';
@@ -471,6 +471,14 @@ const Profile = () => {
                                     <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider">
                                         Level {Math.floor((user.xp || 0) / 500) + 1}
                                     </span>
+                                    {/* Dynamic Subscription Badge */}
+                                    <Link to="/subscription" className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${user.subscription?.plan === 'pro' || user.subscription?.plan === 'elite'
+                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                            : 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-500/30'
+                                        }`}>
+                                        <Crown className="w-3 h-3" />
+                                        {user.subscription?.plan === 'pro' ? 'Pro Plan' : user.subscription?.plan === 'elite' ? 'Elite' : 'Free Plan'}
+                                    </Link>
                                 </div>
 
                                 {user.bio && (
@@ -560,7 +568,7 @@ const Profile = () => {
                     {/* Right Content */}
                     <motion.div variants={itemVariants} className="lg:col-span-8 space-y-6">
                         {/* Stats Grid */}
-                        <div className="grid sm:grid-cols-3 gap-4">
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <Link to="/leaderboard" className="bg-white dark:bg-[#111] p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-white/10 flex items-center gap-4 hover:scale-105 transition-transform cursor-pointer group">
                                 <div className="p-3 bg-yellow-500/10 rounded-xl group-hover:bg-yellow-500/20 transition-colors">
                                     <Award className="w-6 h-6 text-yellow-500" />
@@ -586,6 +594,25 @@ const Profile = () => {
                                 <div>
                                     <div className="text-2xl font-bold text-gray-900 dark:text-white">{user.coins || 0}</div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400 font-medium group-hover:text-green-500 transition-colors">Total Earnings</div>
+                                </div>
+                            </Link>
+                            <Link to="/subscription" className="bg-white dark:bg-[#111] p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-white/10 flex items-center gap-4 hover:scale-105 transition-transform cursor-pointer group">
+                                <div className={`p-3 rounded-xl transition-colors ${user.subscription?.plan === 'pro' || user.subscription?.plan === 'elite'
+                                        ? 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg'
+                                        : 'bg-purple-500/10 group-hover:bg-purple-500/20'
+                                    }`}>
+                                    <Crown className={`w-6 h-6 ${user.subscription?.plan === 'pro' || user.subscription?.plan === 'elite'
+                                            ? 'text-white'
+                                            : 'text-purple-500'
+                                        }`} />
+                                </div>
+                                <div>
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white capitalize">
+                                        {user.subscription?.plan === 'pro' ? 'Pro Membership' : user.subscription?.plan === 'elite' ? 'Elite Status' : 'Free Plan'}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium group-hover:text-purple-500 transition-colors">
+                                        {user.subscription?.plan === 'pro' || user.subscription?.plan === 'elite' ? 'Manage Subscription' : 'Upgrade to Pro'}
+                                    </div>
                                 </div>
                             </Link>
                         </div>

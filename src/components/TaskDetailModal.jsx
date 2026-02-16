@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { getTaskById } from '../api/tasks';
-import { X, Send, Clock, DollarSign, User, MessageSquare, CheckCircle, AlertCircle, Loader, Briefcase, FileText, Smile, Edit2, Trash2, Copy, Check } from 'lucide-react';
+import { X, Send, Clock, User, MessageSquare, CheckCircle, AlertCircle, Loader, Briefcase, FileText, Smile, Edit2, Trash2, Copy, Check, Shield, Crown, Zap, Calendar, ExternalLink, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import UserProfileModal from './UserProfileModal';
@@ -22,11 +22,11 @@ const TaskDetailModal = ({ taskId, onClose }) => {
     const [editingText, setEditingText] = useState('');
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
     const [copiedMessageId, setCopiedMessageId] = useState(null);
-    const [deleteConfirm, setDeleteConfirm] = useState(null); // { messageId: string }
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [reactionPickerMessageId, setReactionPickerMessageId] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const chatEndRef = useRef(null);
-    const taskDetailsRef = useRef(null); // Ref for scrollable task details container
+    const taskDetailsRef = useRef(null);
 
     useEffect(() => {
         const fetchTask = async () => {
@@ -50,51 +50,21 @@ const TaskDetailModal = ({ taskId, onClose }) => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [task?.chat]);
 
-    // Prevent body scroll and background movement when modal is open
-    useEffect(() => {
-        if (taskId) {
-            // Store the current scroll position
-            const scrollY = window.scrollY;
-
-            // Apply styles to body to prevent scroll and movement
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollY}px`;
-            document.body.style.width = '100%';
-            document.body.style.overflow = 'hidden';
-        } else {
-            // Restore the previous state
-            const scrollY = document.body.style.top;
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            document.body.style.overflow = '';
-
-            // Restore scroll position
-            if (scrollY) {
-                window.scrollTo(0, parseInt(scrollY || '0') * -1);
-            }
-        }
-
-        return () => {
-            // Cleanup on unmount
-            const scrollY = document.body.style.top;
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            document.body.style.overflow = '';
-
-            if (scrollY) {
-                window.scrollTo(0, parseInt(scrollY || '0') * -1);
-            }
-        };
-    }, [taskId]);
-
-    // Scroll task details to top when modal opens or task changes
     useEffect(() => {
         if (taskDetailsRef.current && task) {
             taskDetailsRef.current.scrollTop = 0;
         }
     }, [task, taskId]);
+
+    // Prevent body scroll
+    useEffect(() => {
+        if (taskId) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [taskId]);
 
     const handleSendChat = async (e) => {
         e.preventDefault();
@@ -123,7 +93,6 @@ const TaskDetailModal = ({ taskId, onClose }) => {
 
     const handleEditMessage = async (messageId) => {
         if (!editingText.trim()) return;
-
         try {
             await api.put(`/tasks/${taskId}/chat/${messageId}`, { text: editingText });
             const data = await getTaskById(taskId);
@@ -195,40 +164,20 @@ const TaskDetailModal = ({ taskId, onClose }) => {
 
     return (
         <>
-            {/* Delete Confirmation Modal */}
             <AnimatePresence>
                 {deleteConfirm && (
-                    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-white/10"
+                            className="bg-[#0f0f0f] rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/10"
                         >
-                            <div className="flex items-start gap-4 mb-6">
-                                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                                    <Trash2 className="w-6 h-6 text-red-500" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Message?</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Are you sure you want to delete this message? This action cannot be undone.
-                                    </p>
-                                </div>
-                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Delete Message?</h3>
+                            <p className="text-gray-400 mb-6">This action cannot be undone.</p>
                             <div className="flex gap-3 justify-end">
-                                <button
-                                    onClick={() => setDeleteConfirm(null)}
-                                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteMessage(deleteConfirm)}
-                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-red-500/20"
-                                >
-                                    Delete
-                                </button>
+                                <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 bg-white/5 text-gray-300 rounded-lg font-bold hover:bg-white/10">Cancel</button>
+                                <button onClick={() => handleDeleteMessage(deleteConfirm)} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700">Delete</button>
                             </div>
                         </motion.div>
                     </div>
@@ -238,101 +187,125 @@ const TaskDetailModal = ({ taskId, onClose }) => {
             <AnimatePresence>
                 {taskId && (
                     <div
-                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-                        onClick={(e) => {
-                            // Close modal when clicking on backdrop
-                            if (e.target === e.currentTarget) {
-                                onClose();
-                            }
-                        }}
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+                        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
                     >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-6xl h-[90vh] bg-white dark:bg-[#0F0F12] rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-6xl h-[90vh] bg-[#050505] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 flex flex-col md:flex-row"
                             onClick={(e) => e.stopPropagation()}
                         >
+                            {/* CLOSE BUTTON */}
                             <button
                                 onClick={onClose}
-                                className="absolute top-2 right-2 z-50 w-10 h-10 flex items-center justify-center bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-full text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                                className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-all backdrop-blur-sm border border-white/5"
                             >
                                 <X className="w-5 h-5" />
                             </button>
 
                             {loading ? (
-                                <div className="flex items-center justify-center h-full">
-                                    <Loader className="w-8 h-8 animate-spin text-indigo-500" />
+                                <div className="flex items-center justify-center w-full h-full">
+                                    <Loader className="w-10 h-10 animate-spin text-indigo-500" />
                                 </div>
                             ) : task ? (
-                                <div className="flex h-full">
-                                    {/* Left: Task Details (60%) */}
-                                    <div className="flex-[3] flex flex-col border-r border-gray-200 dark:border-white/10">
-                                        {/* Task Header - Fixed */}
-                                        <div className="p-6 border-b border-gray-200 dark:border-white/10 bg-gradient-to-b from-indigo-500/5 to-transparent">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${task.category === 'Development' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' :
-                                                    task.category === 'Design' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
-                                                        'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                                <>
+                                    {/* LEFT: Task Details (60%) */}
+                                    <div className="flex-[3] flex flex-col border-r border-white/5 bg-[#050505] relative overflow-hidden">
+                                        {/* Decorative Background */}
+                                        <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none" />
+
+                                        {/* Header */}
+                                        <div className="p-8 pb-4 relative z-10">
+                                            <div className="flex flex-wrap items-center gap-3 mb-6">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${task.category === 'Development' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                    task.category === 'Design' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                                        'bg-green-500/10 text-green-400 border-green-500/20'
                                                     }`}>
                                                     {task.category}
                                                 </span>
-                                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${task.status === 'Open' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' :
-                                                    task.status === 'In Progress' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20' :
-                                                        'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/20'
+                                                {task.coins >= 500 && (
+                                                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 flex items-center gap-1">
+                                                        <Crown className="w-3 h-3" /> Premium
+                                                    </span>
+                                                )}
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${task.status === 'Open' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                                                    'bg-gray-500/10 text-gray-400 border-gray-500/20'
                                                     }`}>
                                                     {task.status}
                                                 </span>
                                             </div>
 
-                                            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                                            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 leading-tight">
                                                 {task.title}
                                             </h2>
 
-                                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                                            <div className="flex flex-wrap gap-6 text-sm text-gray-400 border-b border-white/5 pb-6">
                                                 <div className="flex items-center gap-2">
-                                                    <User className="w-4 h-4" />
-                                                    <span>{task.createdBy?.name || 'Unknown'}</span>
+                                                    <div className="p-1.5 bg-white/5 rounded-lg">
+                                                        <User className="w-4 h-4 text-gray-300" />
+                                                    </div>
+                                                    <span>by <span className="text-white font-medium">{task.createdBy?.name}</span></span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <Clock className="w-4 h-4" />
-                                                    <span>{new Date(task.deadline).toLocaleDateString()}</span>
+                                                    <div className="p-1.5 bg-white/5 rounded-lg">
+                                                        <Calendar className="w-4 h-4 text-gray-300" />
+                                                    </div>
+                                                    <span>Due {new Date(task.deadline).toLocaleDateString()}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 font-bold text-indigo-600 dark:text-indigo-400">
-                                                    <DollarSign className="w-4 h-4" />
-                                                    <span>{task.coins} Coins</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 bg-white/5 rounded-lg">
+                                                        <Shield className="w-4 h-4 text-gray-300" />
+                                                    </div>
+                                                    <span>Verified Post</span>
                                                 </div>
-                                                {/* XP Display */}
-                                                <div className="flex items-center gap-1.5 font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-zap text-purple-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                                                    <span>+{Math.floor(10 + (task.coins / 10))} XP</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-6 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                                                        <Coins className="w-6 h-6 text-black" strokeWidth={3} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-2xl font-black text-white">{task.coins}</div>
+                                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Coins Reward</div>
+                                                    </div>
+                                                </div>
+                                                <div className="w-px h-10 bg-white/10" />
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                                        <Zap className="w-6 h-6 text-white" strokeWidth={3} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-2xl font-black text-white">+{Math.floor(10 + (task.coins / 10))} XP</div>
+                                                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Experience</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Task Content - Scrollable */}
-                                        <div ref={taskDetailsRef} className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                                            <div className="mb-6">
-                                                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
-                                                    <FileText className="w-5 h-5 text-indigo-500" /> Description
-                                                </h3>
-                                                <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                                    {task.description || task.desc}
-                                                </p>
+                                        {/* Scrollable Content */}
+                                        <div ref={taskDetailsRef} className="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
+                                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                                <FileText className="w-5 h-5 text-indigo-400" /> Description
+                                            </h3>
+                                            <div className="text-gray-300 leading-relaxed whitespace-pre-wrap bg-white/5 p-6 rounded-2xl border border-white/5 mb-8">
+                                                {task.description || task.desc}
                                             </div>
 
-                                            {task.attachments && task.attachments.length > 0 && (
-                                                <div className="mb-6">
-                                                    <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Attachments</h3>
-                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {task.attachments?.length > 0 && (
+                                                <div className="mb-8">
+                                                    <h3 className="text-lg font-bold text-white mb-4">Attachments</h3>
+                                                    <div className="grid grid-cols-2 gap-4">
                                                         {task.attachments.map((file, idx) => (
-                                                            <div key={idx} className="relative group rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden hover:border-indigo-500/50 transition-colors">
+                                                            <div key={idx} className="group relative aspect-video bg-black/40 rounded-xl border border-white/10 overflow-hidden">
                                                                 {file.type?.startsWith('image/') ? (
-                                                                    <img src={file.data} alt={file.name} className="w-full h-24 object-cover" />
+                                                                    <img src={file.data} alt={file.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                                 ) : (
-                                                                    <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-50 dark:bg-white/5">
-                                                                        <FileText className="w-6 h-6 text-gray-400 mb-1" />
-                                                                        <span className="text-xs text-center text-gray-500 px-2 line-clamp-1">{file.name}</span>
+                                                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+                                                                        <FileText className="w-8 h-8 mb-2" />
+                                                                        <span className="text-xs px-2 text-center line-clamp-1">{file.name}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -341,44 +314,44 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                 </div>
                                             )}
 
-                                            {/* Applicants Section */}
-                                            {(currentUser?._id === task.createdBy?._id || currentUser?.name === task.createdBy?.name) && task.applicants?.length > 0 && (
-                                                <div className="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
-                                                    <h4 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
-                                                        <Briefcase className="w-4 h-4" /> {task.status === 'Completed' ? 'Past Applicants' : 'Applicants'} ({task.applicants.length})
-                                                    </h4>
-                                                    <div className="space-y-2">
+                                            {/* APPLICANTS SECTION - VISIBLE TO EVERYONE */}
+                                            {task.applicants?.length > 0 && (
+                                                <div className="mb-8">
+                                                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                                        <Briefcase className="w-5 h-5 text-indigo-400" /> Applicants ({task.applicants.length})
+                                                    </h3>
+                                                    <div className="space-y-3">
                                                         {task.applicants.map((app, idx) => (
-                                                            <div key={idx} className="flex justify-between items-center p-3 hover:bg-white dark:hover:bg-white/5 rounded-lg transition-colors group">
+                                                            <div key={idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
                                                                 <div
-                                                                    className="flex items-center gap-3 cursor-pointer flex-1"
+                                                                    className="flex items-center gap-3 cursor-pointer"
                                                                     onClick={() => setSelectedUser(app.user)}
                                                                 >
-                                                                    <img
-                                                                        src={app.user?.avatar || `https://ui-avatars.com/api/?name=${app.user?.name || 'User'}`}
-                                                                        alt={app.user?.name}
-                                                                        className="w-8 h-8 rounded-full border-2 border-indigo-500"
-                                                                    />
-                                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                                                                        {app.user?.name || 'Unknown'}
-                                                                    </span>
-                                                                    {task.assignedTo === (app.user?._id || app.user) && (
-                                                                        <span className="ml-auto px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">
-                                                                            {task.status === 'Completed' ? 'Completed' : 'Assigned'}
-                                                                        </span>
-                                                                    )}
+                                                                    <img src={app.user?.avatar || `https://ui-avatars.com/api/?name=${app.user?.name || 'User'}`} className="w-10 h-10 rounded-full border-2 border-indigo-500/30" alt="" />
+                                                                    <div>
+                                                                        <div className="font-bold text-white">{app.user?.name || 'Unknown User'}</div>
+                                                                        <div className="text-xs text-gray-500">Applied {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : 'Recently'}</div>
+                                                                    </div>
                                                                 </div>
-                                                                {task.status === 'Open' && (
+
+                                                                {/* Only creator sees Assign button */}
+                                                                {task.status === 'Open' && currentUser?._id === task.createdBy?._id && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleAssign(app.user?._id || app.user);
                                                                         }}
                                                                         disabled={actionLoading}
-                                                                        className="px-3 py-1 bg-indigo-100 dark:bg-indigo-500/20 hover:bg-indigo-200 dark:hover:bg-indigo-500/30 text-indigo-700 dark:text-indigo-300 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                                                                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                                                                     >
                                                                         Assign
                                                                     </button>
+                                                                )}
+
+                                                                {task.assignedTo === (app.user?._id || app.user) && (
+                                                                    <div className="px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-lg border border-green-500/20">
+                                                                        Assigned
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         ))}
@@ -387,340 +360,107 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                             )}
                                         </div>
 
-                                        {/* Action Footer - Fixed */}
-                                        <div className="p-4 border-t border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                    <Briefcase className="w-4 h-4 inline mr-1" />
-                                                    {task.applicants?.length || 0} Applicants
+                                        {/* Action Footer */}
+                                        <div className="p-6 border-t border-white/10 bg-[#0a0a0a] relative z-20">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex -space-x-2">
+                                                    {task.applicants?.slice(0, 3).map((app, i) => (
+                                                        <img key={i} src={app.user?.avatar || `https://ui-avatars.com/api/?name=${app.user?.name}`} className="w-8 h-8 rounded-full border-2 border-[#0a0a0a]" alt="" />
+                                                    ))}
+                                                    {task.applicants?.length > 0 && (
+                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white border-2 border-[#0a0a0a]">
+                                                            {task.applicants.length}
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {task.status === 'Open' && currentUser?._id !== task.createdBy?._id && !task.applicants?.some(a => (a.user?._id || a.user) === currentUser?._id) && (
+                                                {task.status === 'Open' && currentUser?._id !== task.createdBy?._id && (
                                                     <button
                                                         onClick={handleApply}
-                                                        disabled={actionLoading || (currentUser.coins < 5)}
-                                                        className={`px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2 ${currentUser.coins < 5
-                                                                ? 'bg-gray-400 cursor-not-allowed text-gray-200'
-                                                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                                        disabled={actionLoading || currentUser.coins < 5}
+                                                        className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transform transition-all ${currentUser.coins < 5
+                                                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                                            : 'bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-105 shadow-xl shadow-indigo-500/20'
                                                             }`}
-                                                        title={currentUser.coins < 5 ? "Insufficient coins (Need 5)" : ""}
                                                     >
-                                                        {actionLoading ? <Loader className="w-4 h-4 animate-spin" /> : (
-                                                            <>
-                                                                <span>Apply</span>
-                                                                <span className="bg-black/20 px-1.5 py-0.5 rounded text-xs ml-1 flex items-center">
-                                                                    <span className="opacity-70 text-[10px] mr-0.5">COST:</span> 5
-                                                                    <img src="https://cdn-icons-png.flaticon.com/512/138/138292.png" alt="c" className="w-2.5 h-2.5 ml-0.5" />
-                                                                </span>
-                                                            </>
-                                                        )}
+                                                        {actionLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Apply Now (-5 Coins)'}
                                                     </button>
                                                 )}
 
-                                                {task.status === 'Open' && task.applicants?.some(a => (a.user?._id || a.user) === currentUser?._id) && (
-                                                    <span className="px-6 py-2.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg font-bold border border-green-500/20 flex items-center gap-2">
-                                                        <CheckCircle className="w-4 h-4" /> Applied
-                                                    </span>
+                                                {task.status === 'In Progress' && (task.assignedTo === currentUser?._id || task.createdBy?._id === currentUser?._id) && (
+                                                    <button
+                                                        onClick={handleComplete}
+                                                        disabled={actionLoading}
+                                                        className="px-8 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold shadow-xl shadow-green-500/20"
+                                                    >
+                                                        Mark Complete
+                                                    </button>
                                                 )}
 
-                                                {task.status === 'In Progress' && (
-                                                    (task.assignedTo === currentUser?._id) ||
-                                                    (task.createdBy?._id === currentUser?._id || task.createdBy === currentUser?._id)
-                                                ) && (
-                                                        <button
-                                                            onClick={handleComplete}
-                                                            disabled={actionLoading}
-                                                            className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-all shadow-lg shadow-green-500/20 disabled:opacity-50"
-                                                        >
-                                                            {actionLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Mark Complete'}
-                                                        </button>
-                                                    )}
-
                                                 {task.status === 'Completed' && (
-                                                    <span className="px-6 py-2.5 bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded-lg font-bold border border-green-200 dark:border-green-500/20 flex items-center gap-2">
-                                                        <CheckCircle className="w-4 h-4" /> Completed
-                                                    </span>
+                                                    <div className="px-8 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold border border-green-500/20 flex items-center gap-2">
+                                                        <CheckCircle className="w-5 h-5" /> Completed
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Right: Chat (40%) */}
-                                    <div className="flex-[2] flex flex-col bg-gray-50 dark:bg-[#0A0A0C]">
-                                        {/* Chat Header */}
-                                        <div className="p-4 border-b border-gray-200 dark:border-white/5 bg-white dark:bg-[#0F0F12]">
-                                            <div className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
-                                                <MessageSquare className="w-5 h-5 text-indigo-500" />
-                                                Discussion
-                                            </div>
+                                    {/* RIGHT: Chat Area (40%) */}
+                                    <div className="hidden md:flex flex-[2] flex-col bg-[#0a0a0a] border-l border-white/5">
+                                        <div className="p-6 border-b border-white/5 bg-[#0a0a0a]">
+                                            <h3 className="font-bold text-white flex items-center gap-2">
+                                                <MessageSquare className="w-5 h-5 text-indigo-500" /> Discussion
+                                            </h3>
                                         </div>
 
-                                        {/* Chat Messages */}
-                                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                                             {(!task.chat || task.chat.length === 0) ? (
-                                                <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
-                                                    <MessageSquare className="w-10 h-10 opacity-20" />
-                                                    <p>No messages yet</p>
-                                                    <p className="text-xs">Start the conversation!</p>
+                                                <div className="h-full flex flex-col items-center justify-center text-gray-600 opacity-50">
+                                                    <MessageSquare className="w-12 h-12 mb-4" />
+                                                    <p>Start the conversation!</p>
                                                 </div>
                                             ) : (
-                                                Object.entries(groupMessagesByDate(task.chat)).map(([dateLabel, groupMessages]) => (
-                                                    <React.Fragment key={dateLabel}>
-                                                        <div className="flex items-center justify-center my-4">
-                                                            <div className="bg-gray-200 dark:bg-white/10 px-3 py-1 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                                                                {dateLabel}
+                                                task.chat.map((msg, idx) => {
+                                                    const isOwn = msg.user === currentUser?._id || msg.from === currentUser?.name;
+                                                    return (
+                                                        <div key={idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                                            <div className={`max-w-[85%] rounded-2xl p-4 ${isOwn ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white/10 text-gray-200 rounded-tl-sm'
+                                                                }`}>
+                                                                {!isOwn && <div className="text-[10px] font-bold text-gray-400 mb-1">{msg.from}</div>}
+                                                                <p className="text-sm">{msg.text}</p>
+                                                                <div className={`text-[10px] mt-2 ${isOwn ? 'text-indigo-200' : 'text-gray-500'}`}>{formatTime(msg.at)}</div>
                                                             </div>
                                                         </div>
-                                                        {groupMessages.map((msg, idx) => {
-                                                            const isOwnMessage = msg.user === currentUser?._id || msg.from === currentUser?.name;
-                                                            const isEditing = editingMessageId === msg._id;
-                                                            const isHovered = hoveredMessageId === msg._id;
-
-                                                            return (
-                                                                <motion.div
-                                                                    key={msg._id || idx}
-                                                                    initial={{ opacity: 0, y: 10 }}
-                                                                    animate={{ opacity: 1, y: 0 }}
-                                                                    transition={{ duration: 0.2 }}
-                                                                    className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} group relative`}
-                                                                    onMouseEnter={() => setHoveredMessageId(msg._id)}
-                                                                    onMouseLeave={() => setHoveredMessageId(null)}
-                                                                >
-                                                                    {/* Action Buttons - Positioned Above Message */}
-                                                                    {isHovered && !isEditing && (
-                                                                        <motion.div
-                                                                            initial={{ opacity: 0, y: -5 }}
-                                                                            animate={{ opacity: 1, y: 0 }}
-                                                                            className={`flex gap-1 mb-1 ${isOwnMessage ? 'mr-2' : 'ml-9'} relative`}
-                                                                        >
-                                                                            {isOwnMessage && (
-                                                                                <>
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setEditingMessageId(msg._id);
-                                                                                            setEditingText(msg.text);
-                                                                                        }}
-                                                                                        className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                                        title="Edit"
-                                                                                    >
-                                                                                        <Edit2 className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => setDeleteConfirm(msg._id)}
-                                                                                        className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm"
-                                                                                        title="Delete"
-                                                                                    >
-                                                                                        <Trash2 className="w-3 h-3 text-red-500" />
-                                                                                    </button>
-                                                                                </>
-                                                                            )}
-                                                                            <div className="relative">
-                                                                                <button
-                                                                                    onClick={() => setReactionPickerMessageId(reactionPickerMessageId === msg._id ? null : msg._id)}
-                                                                                    className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                                    title="React"
-                                                                                >
-                                                                                    <Smile className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                                </button>
-
-                                                                                {/* Emoji Picker for Reactions */}
-                                                                                {reactionPickerMessageId === msg._id && (
-                                                                                    <motion.div
-                                                                                        initial={{ opacity: 0, scale: 0.9, y: -5 }}
-                                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                        className={`absolute top-full mt-1 ${isOwnMessage ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-white/10 p-1.5 grid grid-cols-4 gap-1 z-30 w-32`}
-                                                                                        onClick={(e) => e.stopPropagation()}
-                                                                                    >
-                                                                                        {EMOJI_OPTIONS.map(emoji => (
-                                                                                            <button
-                                                                                                key={emoji}
-                                                                                                onClick={() => {
-                                                                                                    handleReaction(msg._id, emoji);
-                                                                                                    setReactionPickerMessageId(null);
-                                                                                                }}
-                                                                                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-base flex items-center justify-center aspect-square"
-                                                                                            >
-                                                                                                {emoji}
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </motion.div>
-                                                                                )}
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => handleCopyMessage(msg.text)}
-                                                                                className="p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-white/10 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm"
-                                                                                title="Copy"
-                                                                            >
-                                                                                {copiedMessageId === msg.text ? (
-                                                                                    <Check className="w-3 h-3 text-green-500" />
-                                                                                ) : (
-                                                                                    <Copy className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                                                                                )}
-                                                                            </button>
-                                                                        </motion.div>
-                                                                    )}
-
-                                                                    <div className={`flex items-end gap-2 max-w-[75%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                                        {/* Avatar */}
-                                                                        {!isOwnMessage && (
-                                                                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                                                                                {msg.from?.charAt(0) || 'U'}
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* Message Content */}
-                                                                        <div className="flex-1 min-w-0">
-                                                                            {isEditing ? (
-                                                                                <div className="flex gap-1 items-center p-1 bg-white dark:bg-white/10 rounded-xl border border-indigo-500">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={editingText}
-                                                                                        onChange={(e) => setEditingText(e.target.value)}
-                                                                                        onKeyPress={(e) => e.key === 'Enter' && handleEditMessage(msg._id)}
-                                                                                        className="flex-1 px-2 py-1 bg-transparent outline-none text-sm text-gray-900 dark:text-white"
-                                                                                        autoFocus
-                                                                                    />
-                                                                                    <button
-                                                                                        onClick={() => handleEditMessage(msg._id)}
-                                                                                        className="p-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 flex-shrink-0"
-                                                                                    >
-                                                                                        <Check className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => setEditingMessageId(null)}
-                                                                                        className="p-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-300 flex-shrink-0"
-                                                                                    >
-                                                                                        <X className="w-3 h-3" />
-                                                                                    </button>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div className={`px-3 py-2 rounded-2xl text-sm ${isOwnMessage
-                                                                                    ? 'bg-indigo-600 text-white rounded-br-sm'
-                                                                                    : 'bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-200 dark:border-white/10'
-                                                                                    }`}>
-                                                                                    {!isOwnMessage && (
-                                                                                        <div className="font-bold text-[10px] mb-0.5 opacity-70">{msg.from}</div>
-                                                                                    )}
-                                                                                    <div className="break-words">{msg.text}</div>
-                                                                                    {msg.edited && (
-                                                                                        <div className={`text-[9px] mt-0.5 italic ${isOwnMessage ? 'text-indigo-200' : 'text-gray-400'}`}>
-                                                                                            (edited)
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {/* Reactions */}
-                                                                                    {msg.reactions && msg.reactions.length > 0 && (
-                                                                                        <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                            {Object.entries(
-                                                                                                msg.reactions.reduce((acc, r) => {
-                                                                                                    acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                                                                                    return acc;
-                                                                                                }, {})
-                                                                                            ).map(([emoji, count]) => (
-                                                                                                <button
-                                                                                                    key={emoji}
-                                                                                                    onClick={() => handleReaction(msg._id, emoji)}
-                                                                                                    className="px-1.5 py-0.5 bg-black/10 dark:bg-white/10 rounded-full text-xs hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
-                                                                                                >
-                                                                                                    {emoji} {count}
-                                                                                                </button>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Timestamp */}
-                                                                    <span className={`text-[10px] text-gray-400 mt-0.5 ${isOwnMessage ? 'mr-2' : 'ml-9'}`}>
-                                                                        {formatTime(msg.at)}
-                                                                    </span>
-                                                                </motion.div>
-                                                            );
-                                                        })}
-                                                    </React.Fragment>
-                                                ))
+                                                    )
+                                                })
                                             )}
                                             <div ref={chatEndRef} />
                                         </div>
 
-                                        {/* Chat Input */}
-                                        <div className="p-3 border-t border-gray-200 dark:border-white/5 bg-white dark:bg-[#0F0F12]">
-                                            {currentUser ? (
-                                                <>
-                                                    <form onSubmit={handleSendChat} className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={chatMessage}
-                                                                onChange={(e) => setChatMessage(e.target.value)}
-                                                                placeholder="Type a message..."
-                                                                className="w-full pl-3 pr-10 py-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg outline-none text-sm text-gray-900 dark:text-white input-glow"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                                                            >
-                                                                <Smile className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                        <button
-                                                            type="submit"
-                                                            disabled={!chatMessage.trim()}
-                                                            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <Send className="w-4 h-4" />
-                                                        </button>
-                                                    </form>
-
-                                                    {/* Emoji Picker */}
-                                                    {showEmojiPicker && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: 10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            className="mt-2 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-white/10 flex gap-1"
-                                                        >
-                                                            {EMOJI_OPTIONS.map(emoji => (
-                                                                <button
-                                                                    key={emoji}
-                                                                    onClick={() => {
-                                                                        setChatMessage(prev => prev + emoji);
-                                                                        setShowEmojiPicker(false);
-                                                                    }}
-                                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors text-lg"
-                                                                >
-                                                                    {emoji}
-                                                                </button>
-                                                            ))}
-                                                        </motion.div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <div className="w-full py-4 text-center text-gray-500 dark:text-gray-400 text-sm font-medium bg-gray-50 dark:bg-white/5 rounded-xl border border-dashed border-gray-200 dark:border-white/10">
-                                                    Log in to message
-                                                </div>
-                                            )}
+                                        <div className="p-4 bg-[#0a0a0a] border-t border-white/5">
+                                            <form onSubmit={handleSendChat} className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={chatMessage}
+                                                    onChange={(e) => setChatMessage(e.target.value)}
+                                                    placeholder="Type a message..."
+                                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                                />
+                                                <button type="submit" disabled={!chatMessage.trim()} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50">
+                                                    <Send className="w-5 h-5" />
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-red-500">
-                                    <AlertCircle className="w-12 h-12 mb-4" />
-                                    <p className="text-lg font-bold">Failed to load task</p>
-                                    <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-100 dark:bg-white/10 rounded-lg text-sm">Close</button>
-                                </div>
-                            )}
+                                </>
+                            ) : null}
                         </motion.div>
-                    </div >
+                    </div>
                 )}
-            </AnimatePresence >
+            </AnimatePresence>
 
-            <UserProfileModal
-                user={selectedUser}
-                onClose={() => setSelectedUser(null)}
-            />
+            <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
         </>
     );
 };
