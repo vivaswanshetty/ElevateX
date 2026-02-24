@@ -1,156 +1,105 @@
 import React from 'react';
-import { ArrowLeft, Calendar, User, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Calendar, User, ArrowRight, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+const blogPosts = [
+    { id: 1, title: 'The Future of Collaborative Work: How ElevateX is Changing the Game', excerpt: 'Discover how our platform is revolutionizing the way people connect, collaborate, and complete tasks in the digital age.', author: 'Sarah Johnson', date: 'Nov 25, 2025', category: 'Platform Updates', emoji: '🚀', readTime: '5 min read', color: '#ef4444' },
+    { id: 2, title: '10 Tips to Maximize Your Earnings on ElevateX', excerpt: 'Expert strategies to help you stand out, win more tasks, and boost your coin balance on the platform.', author: 'Michael Chen', date: 'Nov 22, 2025', category: 'Tips & Tricks', emoji: '💰', readTime: '7 min read', color: '#f97316' },
+    { id: 3, title: 'Building Your Profile: Best Practices for Success', excerpt: 'Learn how to create a compelling profile that attracts task creators and showcases your unique skills.', author: 'Emma Williams', date: 'Nov 20, 2025', category: 'Guides', emoji: '✨', readTime: '6 min read', color: '#6366f1' },
+    { id: 4, title: 'Community Spotlight: Success Stories from Top Users', excerpt: 'Meet the achievers who have transformed their ElevateX journey into remarkable success stories.', author: 'David Park', date: 'Nov 18, 2025', category: 'Community', emoji: '🌟', readTime: '8 min read', color: '#eab308' },
+    { id: 5, title: 'Understanding the ElevateX Coin Economy', excerpt: 'A deep dive into how our virtual currency works and how to make the most of it.', author: 'Lisa Anderson', date: 'Nov 15, 2025', category: 'Features', emoji: '🪙', readTime: '4 min read', color: '#10b981' },
+    { id: 6, title: 'New Feature Alert: Productivity Duels Are Here!', excerpt: 'Challenge your peers and showcase your skills in our exciting new competitive feature.', author: 'James Rodriguez', date: 'Nov 12, 2025', category: 'Product News', emoji: '⚔️', readTime: '3 min read', color: '#8b5cf6' },
+];
 
 const Blog = () => {
     const navigate = useNavigate();
 
-    const blogPosts = [
-        {
-            id: 1,
-            title: 'The Future of Collaborative Work: How ElevateX is Changing the Game',
-            excerpt: 'Discover how our platform is revolutionizing the way people connect, collaborate, and complete tasks in the digital age.',
-            author: 'Sarah Johnson',
-            date: 'November 25, 2025',
-            category: 'Platform Updates',
-            image: '🚀',
-            readTime: '5 min read'
-        },
-        {
-            id: 2,
-            title: '10 Tips to Maximize Your Earnings on ElevateX',
-            excerpt: 'Expert strategies to help you stand out, win more tasks, and boost your coin balance on the platform.',
-            author: 'Michael Chen',
-            date: 'November 22, 2025',
-            category: 'Tips & Tricks',
-            image: '💰',
-            readTime: '7 min read'
-        },
-        {
-            id: 3,
-            title: 'Building Your Profile: Best Practices for Success',
-            excerpt: 'Learn how to create a compelling profile that attracts task creators and showcases your unique skills.',
-            author: 'Emma Williams',
-            date: 'November 20, 2025',
-            category: 'Guides',
-            image: '✨',
-            readTime: '6 min read'
-        },
-        {
-            id: 4,
-            title: 'Community Spotlight: Success Stories from Top Users',
-            excerpt: 'Meet the achievers who have transformed their ElevateX journey into remarkable success stories.',
-            author: 'David Park',
-            date: 'November 18, 2025',
-            category: 'Community',
-            image: '🌟',
-            readTime: '8 min read'
-        },
-        {
-            id: 5,
-            title: 'Understanding the ElevateX Coin Economy',
-            excerpt: 'A deep dive into how our virtual currency works and how to make the most of it.',
-            author: 'Lisa Anderson',
-            date: 'November 15, 2025',
-            category: 'Features',
-            image: '🪙',
-            readTime: '4 min read'
-        },
-        {
-            id: 6,
-            title: 'New Feature Alert: Productivity Duels Are Here!',
-            excerpt: 'Challenge your peers and showcase your skills in our exciting new competitive feature.',
-            author: 'James Rodriguez',
-            date: 'November 12, 2025',
-            category: 'Product News',
-            image: '⚔️',
-            readTime: '3 min read'
-        }
-    ];
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-gray-900 dark:via-orange-900/10 dark:to-black py-20 px-6">
+        <div className="min-h-screen py-20 px-6" style={{ background: '#050505' }}>
             <div className="max-w-6xl mx-auto">
-                {/* Back Button */}
+                {/* Back */}
                 <button
                     onClick={() => navigate(-1)}
-                    className="mb-8 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors group"
+                    className="mb-10 flex items-center gap-2 text-sm font-medium transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.65)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
                 >
-                    <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                    <span>Back</span>
+                    <ArrowLeft className="w-4 h-4" /> Back
                 </button>
 
                 {/* Header */}
-                <div className="mb-16 text-center">
-                    <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent leading-tight pb-2">
-                        ElevateX Blog
-                    </h1>
-                    <p className="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
-                        Insights, tips, and stories from the ElevateX community
-                    </p>
-                </div>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                        <Zap className="w-3 h-3" fill="currentColor" /> ElevateX Blog
+                    </div>
+                    <h1 className="text-5xl font-black tracking-tight text-white mb-4">Insights & <span style={{ color: '#ef4444' }}>Stories</span></h1>
+                    <p className="text-base" style={{ color: 'rgba(255,255,255,0.65)' }}>Insights, tips, and stories from the ElevateX community</p>
+                </motion.div>
 
-                {/* Blog Grid */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {blogPosts.map((post) => (
-                        <div
+                {/* Grid */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {blogPosts.map((post, i) => (
+                        <motion.div
                             key={post.id}
-                            className="bg-white dark:bg-gray-800/50 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-2xl hover:scale-105 transition-all duration-300 group cursor-pointer"
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}
+                            className="rounded-2xl overflow-hidden cursor-pointer group transition-all hover:scale-[1.02]"
+                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = `${post.color}30`}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'}
                         >
-                            {/* Image/Icon */}
-                            <div className="h-48 bg-gradient-to-br from-orange-400 via-red-400 to-pink-400 flex items-center justify-center text-7xl group-hover:scale-110 transition-transform">
-                                {post.image}
+                            {/* Banner */}
+                            <div className="h-40 flex items-center justify-center text-6xl relative overflow-hidden" style={{ background: `${post.color}10` }}>
+                                <div className="absolute inset-0" style={{ background: `radial-gradient(circle at center, ${post.color}15 0%, transparent 70%)` }} />
+                                <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">{post.emoji}</span>
                             </div>
 
                             {/* Content */}
-                            <div className="p-6">
+                            <div className="p-5">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-xs font-semibold px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-full">
+                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide" style={{ background: `${post.color}15`, color: post.color, border: `1px solid ${post.color}25` }}>
                                         {post.category}
                                     </span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                        {post.readTime}
-                                    </span>
+                                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>{post.readTime}</span>
                                 </div>
 
-                                <h3 className="text-xl font-bold mb-3 text-black dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                                    {post.title}
-                                </h3>
+                                <h3 className="text-sm font-bold mb-2 text-white leading-snug line-clamp-2 group-hover:opacity-80 transition-opacity">{post.title}</h3>
+                                <p className="text-xs leading-relaxed mb-4 line-clamp-2" style={{ color: 'rgba(255,255,255,0.65)' }}>{post.excerpt}</p>
 
-                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-3">
-                                    {post.excerpt}
-                                </p>
-
-                                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <User className="w-4 h-4" />
-                                        <span>{post.author}</span>
+                                <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                            <User className="w-3 h-3" /> {post.author}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                            <Calendar className="w-3 h-3" /> {post.date}
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <Calendar className="w-4 h-4" />
-                                        <span>{post.date}</span>
-                                    </div>
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: post.color }} />
                                 </div>
-
-                                <button className="mt-4 flex items-center gap-2 text-orange-600 dark:text-orange-400 font-semibold group-hover:gap-3 transition-all">
-                                    Read More
-                                    <ArrowRight className="w-4 h-4" />
-                                </button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
 
-                {/* Coming Soon Section */}
-                <div className="mt-16 text-center bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 rounded-2xl shadow-xl p-12 text-white">
-                    <h2 className="text-3xl font-bold mb-4">Stay Tuned for More!</h2>
-                    <p className="text-lg text-orange-100 mb-6">
-                        We're constantly publishing new content to help you succeed on ElevateX.
-                    </p>
-                    <button className="px-8 py-3 bg-white text-orange-600 font-bold rounded-lg hover:bg-gray-100 transition-all transform hover:scale-105">
+                {/* CTA */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                    className="mt-16 text-center rounded-2xl p-12"
+                    style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)' }}
+                >
+                    <h2 className="text-2xl font-bold mb-3 text-white">Stay Tuned for More!</h2>
+                    <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>We're constantly publishing new content to help you succeed on ElevateX.</p>
+                    <button
+                        className="px-8 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-105"
+                        style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+                    >
                         Subscribe to Newsletter
                     </button>
-                </div>
+                </motion.div>
             </div>
         </div>
     );

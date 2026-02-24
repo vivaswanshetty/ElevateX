@@ -1,204 +1,164 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
 
-// Initialize Razorpay
 const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder'
 });
 
-// @desc    Create Razorpay Order (Deposit OR Subscription)
+// Coin bonuses granted immediately on subscription activation
+const PLAN_COIN_BONUS = {
+    pro: 500,
+    elite: 2500,
+};
+
+// @desc    Create Razorpay Order (coins deposit OR subscription)
 // @route   POST /api/payments/create-order
 // @access  Private
-exports.createOrder = async (req, res) => {
+const createOrder = async (req, res) => {
     try {
-        const { type, amount, plan, billingCycle, currency } = req.body; // currency: 'INR' | 'USD'
-        const selectedCurrency = currency || 'INR';
+        const { amount, type, plan, billingCycle, currency: reqCurrency } = req.body;
 
-        let amountInSmallestUnit = 0; // paise or cents
-        let notes = {
-            userId: req.user._id.toString(),
-            type: type || 'deposit',
-            currency: selectedCurrency
-        };
-
-        if (type === 'subscription') {
-            // Subscription Logic with BALANCED PRICING (Accessible yet Profitable)
-            // Pro: ₹699/mo (Standard) | Elite: ₹1,999/mo (Premium)
-            const PRICING = {
-                INR: {
-                    'pro_monthly': 699 * 100,     // ₹699
-                    'pro_yearly': 6999 * 100,     // ₹6,999 (2 months free)
-                    'elite_monthly': 1999 * 100,  // ₹1,999
-                    'elite_yearly': 19999 * 100   // ₹19,999
-                },
-                USD: {
-                    'pro_monthly': 999,      // $9.99
-                    'pro_yearly': 9900,      // $99.00
-                    'elite_monthly': 2999,   // $29.99
-                    'elite_yearly': 29900    // $299.00
-                }
-            };
-
-            const key = `${plan}_${billingCycle}`;
-            amountInSmallestUnit = PRICING[selectedCurrency]?.[key];
-
-            if (!amountInSmallestUnit) {
-                return res.status(400).json({ success: false, message: 'Invalid plan, billing cycle, or currency' });
-            }
-
-            notes.plan = plan;
-            notes.billingCycle = billingCycle;
-
-        } else {
-            // Coin Deposit Logic
-            if (!amount || amount <= 0) {
-                return res.status(400).json({ success: false, message: 'Please provide a valid amount' });
-            }
-
-            // Exchange Rates for Coins
-            if (selectedCurrency === 'INR') {
-                const COIN_RATE_INR = 2; // 1 Coin = ₹2
-                amountInSmallestUnit = Math.round(amount * COIN_RATE_INR * 100);
-                // Min ₹50
-                if (amountInSmallestUnit < 5000) {
-                    if (amount < 25) return res.status(400).json({ success: false, message: 'Minimum deposit is 25 coins' });
-                }
-            } else {
-                const COIN_RATE_USD = 0.05; // 1 Coin = $0.05
-                amountInSmallestUnit = Math.round(amount * COIN_RATE_USD * 100);
-            }
-
-            notes.coinAmount = amount.toString();
+        if (!amount || amount <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid amount' });
         }
+
+        // Razorpay requires amount in smallest currency unit
+        // INR → paise (×100), USD → cents (×100)
+        const currency = reqCurrency === 'USD' ? 'USD' : 'INR';
+        const amountInSmallestUnit = Math.round(Number(amount) * 100);
 
         const options = {
             amount: amountInSmallestUnit,
-            currency: selectedCurrency,
-            receipt: `rcpt_${Date.now().toString().slice(-4)}_${req.user._id.toString().slice(-4)}`,
-            notes: notes
+            currency,
+            receipt: `rcpt_${Date.now()}_${req.user._id.toString().slice(-4)}`,
+            payment_capture: 1,
+            notes: {
+                type: type || 'deposit',
+                plan: plan || '',
+                billingCycle: billingCycle || '',
+                userId: req.user._id.toString(),
+            }
         };
 
         const order = await razorpay.orders.create(options);
 
-        res.status(200).json({
+        res.json({
             success: true,
             orderId: order.id,
+            keyId: process.env.RAZORPAY_KEY_ID,
             amount: order.amount,
             currency: order.currency,
-            keyId: process.env.RAZORPAY_KEY_ID
         });
-
     } catch (error) {
-        console.error('Razorpay Order Error:', error);
-        res.status(500).json({ success: false, message: 'Payment initiation failed' });
+        console.error('Error creating Razorpay order:', error);
+        res.status(500).json({ success: false, message: 'Failed to create payment order', error: error.message });
     }
 };
 
-// @desc    Verify Razorpay Payment
+// @desc    Verify Razorpay Payment & fulfil order
 // @route   POST /api/payments/verify-payment
 // @access  Private
-exports.verifyPayment = async (req, res) => {
+const verifyPayment = async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            amount,
+            type,
+            plan,
+            billingCycle,
+        } = req.body;
 
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            return res.status(400).json({ success: false, message: 'Payment details missing' });
+            return res.status(400).json({ success: false, message: 'Missing payment details' });
         }
 
-        // 1. Verify Signature locally
-        const generated_signature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(razorpay_order_id + "|" + razorpay_payment_id)
+        // Verify signature
+        const generated_signature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder')
+            .update(razorpay_order_id + '|' + razorpay_payment_id)
             .digest('hex');
 
         if (generated_signature !== razorpay_signature) {
-            return res.status(400).json({ success: false, message: 'Payment verification failed: Invalid Signature' });
+            return res.status(400).json({ success: false, message: 'Invalid payment signature' });
         }
 
-        // 2. Check if processed
-        const existingTx = await Transaction.findOne({ 'metadata.orderId': razorpay_order_id });
-        if (existingTx) {
-            return res.status(200).json({ success: true, message: 'Payment already processed' });
-        }
-
-        // 3. Fetch Order ID from Razorpay
-        const order = await razorpay.orders.fetch(razorpay_order_id);
-        const { type, userId, currency } = order.notes;
-
-        if (userId !== req.user._id.toString()) {
-            return res.status(403).json({ success: false, message: 'User mismatch' });
-        }
-
+        // ── Payment verified ──
         const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        if (type === 'subscription') {
-            const { plan, billingCycle } = order.notes;
+        if (type === 'subscription' && plan) {
+            // ── Subscription purchase ──
+            const coinBonus = PLAN_COIN_BONUS[plan] || 0;
 
-            const expiry = billingCycle === 'yearly'
-                ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            // Upgrade plan
+            const now = new Date();
+            const expiry = new Date(now);
+            if (billingCycle === 'yearly') {
+                expiry.setFullYear(expiry.getFullYear() + 1);
+            } else {
+                expiry.setMonth(expiry.getMonth() + 1);
+            }
 
             user.subscription = {
-                plan: plan,
-                startDate: new Date(),
+                plan,
+                startDate: now,
                 expiryDate: expiry,
-                isActive: true
+                isActive: true,
             };
+
+            // Credit coin bonus
+            if (coinBonus > 0) {
+                user.coins = (user.coins || 0) + coinBonus;
+            }
+
             await user.save();
 
+            // Record transaction
             await Transaction.create({
                 user: req.user._id,
-                type: 'subscription',
-                amount: order.amount / 100,
-                description: `Subscription Upgrade: ${plan.toUpperCase()} (${billingCycle})`,
-                metadata: {
-                    orderId: razorpay_order_id,
-                    paymentId: razorpay_payment_id,
-                    signature: razorpay_signature,
-                    plan,
-                    billingCycle,
-                    currency: order.currency
-                }
+                type: 'deposit',
+                amount: coinBonus,
+                description: `${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan Activation Bonus`,
             });
 
-            res.status(200).json({
+            return res.json({
                 success: true,
-                message: `Successfully upgraded to ${plan} plan!`,
-                subscription: user.subscription
+                message: `${plan} subscription activated!`,
+                subscription: user.subscription,
+                newBalance: user.coins,
+                coinBonus,
             });
 
         } else {
-            const coinAmount = Number(order.notes.coinAmount);
-
-            user.coins += coinAmount;
-            user.totalDeposited += coinAmount;
+            // ── Coin deposit ──
+            const coinsToAdd = Number(amount);
+            user.coins = (user.coins || 0) + coinsToAdd;
+            user.totalDeposited = (user.totalDeposited || 0) + coinsToAdd;
             await user.save();
 
             await Transaction.create({
                 user: req.user._id,
                 type: 'deposit',
-                amount: order.amount / 100,
-                description: `Coin Deposit: ${coinAmount} Coins`,
-                metadata: {
-                    orderId: razorpay_order_id,
-                    paymentId: razorpay_payment_id,
-                    signature: razorpay_signature,
-                    coins: coinAmount,
-                    currency: order.currency
-                }
+                amount: coinsToAdd,
+                description: `Coin Purchase via Razorpay (Ref: ${razorpay_payment_id})`,
             });
 
-            res.status(200).json({
+            return res.json({
                 success: true,
-                message: 'Coins credited successfully',
-                coins: user.coins
+                message: 'Coins added successfully',
+                newBalance: user.coins,
             });
         }
 
     } catch (error) {
-        console.error('Verify Payment Error:', error);
-        res.status(500).json({ success: false, message: 'Payment verification failed' });
+        console.error('Error verifying payment:', error);
+        res.status(500).json({ success: false, message: 'Server error during verification' });
     }
 };
+
+module.exports = { createOrder, verifyPayment };

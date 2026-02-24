@@ -1,163 +1,93 @@
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+const sections = [
+    { title: '1. Acceptance of Terms', content: 'By accessing or using ElevateX, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing this platform.' },
+    {
+        title: '2. User Accounts',
+        content: 'When you create an account with us, you must provide accurate, complete, and current information. You are responsible for:',
+        list: ['Maintaining the confidentiality of your account credentials', 'All activities that occur under your account', 'Notifying us immediately of any unauthorized use', 'Ensuring your profile information is truthful and up-to-date'],
+    },
+    {
+        title: '3. Task Creation and Completion',
+        content: 'Task Creators must provide clear, accurate task descriptions, set fair coin rewards, review and approve/reject submissions in a timely manner, and cannot discriminate against applicants. Task Doers must complete tasks as described, submit work before deadlines, provide quality work, and cannot plagiarize or submit fraudulent work.',
+    },
+    {
+        title: '4. Coins and Virtual Currency',
+        content: 'ElevateX uses a virtual coin system for rewards:',
+        list: ['Coins have no real-world monetary value', 'Coins can be earned by completing tasks', 'Coins can be spent on creating tasks or platform features', 'Coins cannot be transferred to external payment systems', 'We reserve the right to adjust coin balances for fraud prevention'],
+    },
+    {
+        title: '5. Prohibited Conduct',
+        content: 'You agree not to:',
+        list: ['Violate any laws or regulations', 'Infringe on intellectual property rights', 'Upload malicious code or viruses', 'Harass, abuse, or harm other users', 'Create multiple accounts to manipulate the system', 'Engage in fraudulent activities', 'Scrape or collect data without permission'],
+    },
+    { title: '6. Intellectual Property', content: 'The platform, including its original content, features, and functionality, is owned by ElevateX and protected by international copyright, trademark, and other intellectual property laws.' },
+    { title: '7. Dispute Resolution', content: 'In case of disputes between users regarding task completion or quality, ElevateX may intervene to facilitate resolution but is not obligated to do so. Our decision in such matters is final.' },
+    { title: '8. Termination', content: 'We reserve the right to suspend or terminate your account at any time for violations of these terms, fraudulent activity, or any other reason we deem necessary to protect the platform and its users.' },
+    { title: '9. Limitation of Liability', content: 'ElevateX shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.' },
+    { title: '10. Changes to Terms', content: 'We reserve the right to modify these terms at any time. We will notify users of any material changes via email or platform notification. Continued use of the platform after changes constitutes acceptance of the new terms.' },
+    {
+        title: '11. Contact',
+        custom: (
+            <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '14px' }}>
+                For questions about these Terms, please contact us at{' '}
+                <a href="mailto:legal@elevatex.com" style={{ color: '#ef4444' }} className="hover:underline">legal@elevatex.com</a>
+            </p>
+        ),
+    },
+];
 
 const Terms = () => {
     const navigate = useNavigate();
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-black pt-24 pb-20 px-6">
-            <div className="max-w-4xl mx-auto">
-                {/* Back Button */}
+        <div className="min-h-screen pt-24 pb-20 px-6" style={{ background: '#050505' }}>
+            <div className="max-w-3xl mx-auto">
                 <button
                     onClick={() => navigate(-1)}
-                    className="mb-8 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors group"
+                    className="mb-10 flex items-center gap-2 text-sm font-medium transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.65)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
                 >
-                    <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                    <span>Back</span>
+                    <ArrowLeft className="w-4 h-4" /> Back
                 </button>
 
-                {/* Header */}
-                <div className="mb-12 text-center">
-                    <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent leading-tight pb-2">
-                        Terms of Service
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Last updated: November 28, 2025
-                    </p>
-                </div>
-
-                {/* Content */}
-                <div className="bg-white dark:bg-gray-800/50 backdrop-blur-lg rounded-2xl shadow-xl p-8 md:p-12 border border-gray-200 dark:border-gray-700">
-                    <div className="space-y-8 text-gray-700 dark:text-gray-300">
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">1. Acceptance of Terms</h2>
-                            <p>
-                                By accessing or using ElevateX, you agree to be bound by these Terms of Service and all
-                                applicable laws and regulations. If you do not agree with any of these terms, you are
-                                prohibited from using or accessing this platform.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">2. User Accounts</h2>
-                            <p className="mb-4">
-                                When you create an account with us, you must provide accurate, complete, and current
-                                information. You are responsible for:
-                            </p>
-                            <ul className="list-disc list-inside space-y-2 ml-4">
-                                <li>Maintaining the confidentiality of your account credentials</li>
-                                <li>All activities that occur under your account</li>
-                                <li>Notifying us immediately of any unauthorized use</li>
-                                <li>Ensuring your profile information is truthful and up-to-date</li>
-                            </ul>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">3. Task Creation and Completion</h2>
-                            <p className="mb-4">
-                                <strong>Task Creators:</strong>
-                            </p>
-                            <ul className="list-disc list-inside space-y-2 ml-4 mb-4">
-                                <li>Must provide clear, accurate task descriptions</li>
-                                <li>Must set fair coin rewards for tasks</li>
-                                <li>Must review and approve/reject task submissions in a timely manner</li>
-                                <li>Cannot discriminate against applicants</li>
-                            </ul>
-                            <p className="mb-4">
-                                <strong>Task Doers:</strong>
-                            </p>
-                            <ul className="list-disc list-inside space-y-2 ml-4">
-                                <li>Must complete tasks as described</li>
-                                <li>Must submit work before deadlines</li>
-                                <li>Must provide quality work that meets requirements</li>
-                                <li>Cannot plagiarize or submit fraudulent work</li>
-                            </ul>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">4. Coins and Virtual Currency</h2>
-                            <p className="mb-4">
-                                ElevateX uses a virtual coin system for rewards:
-                            </p>
-                            <ul className="list-disc list-inside space-y-2 ml-4">
-                                <li>Coins have no real-world monetary value</li>
-                                <li>Coins can be earned by completing tasks</li>
-                                <li>Coins can be spent on creating tasks or platform features</li>
-                                <li>Coins cannot be transferred to external payment systems</li>
-                                <li>We reserve the right to adjust coin balances for fraud prevention</li>
-                            </ul>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">5. Prohibited Conduct</h2>
-                            <p className="mb-4">You agree not to:</p>
-                            <ul className="list-disc list-inside space-y-2 ml-4">
-                                <li>Violate any laws or regulations</li>
-                                <li>Infringe on intellectual property rights</li>
-                                <li>Upload malicious code or viruses</li>
-                                <li>Harass, abuse, or harm other users</li>
-                                <li>Create multiple accounts to manipulate the system</li>
-                                <li>Engage in fraudulent activities</li>
-                                <li>Scrape or collect data without permission</li>
-                            </ul>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">6. Intellectual Property</h2>
-                            <p>
-                                The platform, including its original content, features, and functionality, is owned by
-                                ElevateX and protected by international copyright, trademark, and other intellectual
-                                property laws.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">7. Dispute Resolution</h2>
-                            <p>
-                                In case of disputes between users regarding task completion or quality, ElevateX may
-                                intervene to facilitate resolution but is not obligated to do so. Our decision in such
-                                matters is final.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">8. Termination</h2>
-                            <p>
-                                We reserve the right to suspend or terminate your account at any time for violations of
-                                these terms, fraudulent activity, or any other reason we deem necessary to protect the
-                                platform and its users.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">9. Limitation of Liability</h2>
-                            <p>
-                                ElevateX shall not be liable for any indirect, incidental, special, consequential, or
-                                punitive damages resulting from your use of or inability to use the service.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">10. Changes to Terms</h2>
-                            <p className="mb-4">
-                                We reserve the right to modify these terms at any time. We will notify users of any
-                                material changes via email or platform notification. Continued use of the platform
-                                after changes constitutes acceptance of the new terms.
-                            </p>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">11. Contact</h2>
-                            <p>
-                                For questions about these Terms, please contact us at{' '}
-                                <a href="mailto:legal@elevatex.com" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                                    legal@elevatex.com
-                                </a>
-                            </p>
-                        </section>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                        <FileText className="w-3 h-3" /> Legal
                     </div>
-                </div>
+                    <h1 className="text-5xl font-black tracking-tight text-white mb-3">Terms of <span style={{ color: '#ef4444' }}>Service</span></h1>
+                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Last updated: November 28, 2025</p>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="rounded-2xl p-8 md:p-12"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                    <div className="space-y-10">
+                        {sections.map((section, i) => (
+                            <section key={i} style={{ borderBottom: i < sections.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: i < sections.length - 1 ? '2.5rem' : 0 }}>
+                                <h2 className="text-lg font-bold mb-4 text-white">{section.title}</h2>
+                                {section.content && <p className="mb-4 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>{section.content}</p>}
+                                {section.list && (
+                                    <ul className="space-y-2 ml-4">
+                                        {section.list.map((item, j) => (
+                                            <li key={j} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {section.custom}
+                            </section>
+                        ))}
+                    </div>
+                </motion.div>
             </div>
         </div>
     );

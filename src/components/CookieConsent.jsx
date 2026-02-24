@@ -1,91 +1,153 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { X, Cookie, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Cookie, X, ShieldCheck, ChevronRight } from 'lucide-react';
 
 const CookieConsent = () => {
-    const [showBanner, setShowBanner] = useState(false);
+    const [show, setShow] = useState(false);
 
     useEffect(() => {
-        // Check if user has already accepted cookies
-        const cookieConsent = localStorage.getItem('cookieConsent');
-        if (!cookieConsent) {
-            // Show banner after a short delay for better UX
-            setTimeout(() => setShowBanner(true), 1500);
+        if (!localStorage.getItem('cookieConsent')) {
+            setTimeout(() => setShow(true), 1800);
         }
     }, []);
 
-    const acceptCookies = () => {
-        localStorage.setItem('cookieConsent', 'accepted');
-        setShowBanner(false);
-    };
-
-    const declineCookies = () => {
-        localStorage.setItem('cookieConsent', 'declined');
-        setShowBanner(false);
-    };
+    const accept = () => { localStorage.setItem('cookieConsent', 'accepted'); setShow(false); };
+    const decline = () => { localStorage.setItem('cookieConsent', 'declined'); setShow(false); };
 
     return (
         <AnimatePresence>
-            {showBanner && (
+            {show && (
                 <motion.div
-                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    initial={{ opacity: 0, y: 32, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="fixed bottom-4 md:bottom-8 left-4 right-4 md:left-auto md:right-8 z-[60] max-w-md w-full mx-auto md:mx-0"
+                    exit={{ opacity: 0, y: 16, scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+                    style={{
+                        position: 'fixed',
+                        // sits above the dock+ticker (92px total from bottom)
+                        bottom: '104px',
+                        right: '16px',
+                        left: '16px',
+                        maxWidth: '400px',
+                        marginLeft: 'auto',
+                        zIndex: 9990,
+                    }}
                 >
-                    <div className="relative overflow-hidden bg-white/90 dark:bg-[#1a1a1a]/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-6">
-                        {/* Decorative background gradients */}
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none" />
-                        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
+                    {/* Card */}
+                    <div style={{
+                        background: '#0d0d0d',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '20px',
+                        overflow: 'hidden',
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
+                        position: 'relative',
+                    }}>
+                        {/* Top red accent line */}
+                        <div style={{
+                            height: '2px',
+                            background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.6), rgba(220,38,38,0.8), rgba(239,68,68,0.6), transparent)',
+                        }} />
 
-                        <div className="relative flex gap-4">
-                            {/* Icon */}
-                            <div className="flex-shrink-0">
-                                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg transform rotate-3">
-                                    <Cookie className="w-6 h-6 text-white" />
+                        {/* Ambient glow */}
+                        <div style={{
+                            position: 'absolute', top: '-50px', right: '-50px',
+                            width: '150px', height: '150px', borderRadius: '50%',
+                            background: 'radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%)',
+                            pointerEvents: 'none',
+                        }} />
+
+                        <div style={{ padding: '20px 20px 20px' }}>
+                            {/* Header row */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
+                                {/* Icon */}
+                                <div style={{
+                                    width: '42px', height: '42px', borderRadius: '13px', flexShrink: 0,
+                                    background: 'rgba(239,68,68,0.1)',
+                                    border: '1px solid rgba(239,68,68,0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <Cookie style={{ width: '20px', height: '20px', color: '#ef4444' }} />
                                 </div>
+
+                                {/* Text */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                                        <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.01em' }}>
+                                            Cookie Preferences
+                                        </h3>
+                                        <ShieldCheck style={{ width: '13px', height: '13px', color: '#22c55e', flexShrink: 0 }} />
+                                    </div>
+                                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.55 }}>
+                                        We use cookies to enhance your experience.{' '}
+                                        <Link
+                                            to="/privacy"
+                                            onClick={decline}
+                                            style={{ color: 'rgba(239,68,68,0.7)', fontWeight: 600, textDecoration: 'none', transition: 'color 0.2s' }}
+                                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(239,68,68,0.7)'}
+                                        >
+                                            Privacy Policy
+                                        </Link>
+                                    </p>
+                                </div>
+
+                                {/* Close */}
+                                <button
+                                    onClick={decline}
+                                    style={{
+                                        width: '28px', height: '28px', borderRadius: '9px', flexShrink: 0,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: 'rgba(255,255,255,0.04)',
+                                        border: '1px solid rgba(255,255,255,0.07)',
+                                        color: 'rgba(255,255,255,0.3)', cursor: 'pointer', transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
+                                >
+                                    <X style={{ width: '12px', height: '12px' }} />
+                                </button>
                             </div>
 
-                            {/* Content */}
-                            <div className="flex-1">
-                                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                                    Cookie & Privacy
-                                    <ShieldCheck className="w-4 h-4 text-green-500" />
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                                    We use cookies to ensure you get the best experience on our website.
-                                    <Link to="/privacy" className="text-orange-600 dark:text-orange-400 hover:underline font-medium ml-1">
-                                        Read Policy
-                                    </Link>
-                                </p>
+                            {/* Divider */}
+                            <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', marginBottom: '14px' }} />
 
-                                {/* Buttons */}
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <button
-                                        onClick={acceptCookies}
-                                        className="flex-1 px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-black text-sm font-bold rounded-xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                                    >
-                                        Accept All
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={declineCookies}
-                                        className="px-4 py-2.5 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all border border-transparent hover:border-gray-300 dark:hover:border-white/20"
-                                    >
-                                        Decline
-                                    </button>
-                                </div>
+                            {/* Buttons */}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={accept}
+                                    style={{
+                                        flex: 1, padding: '10px 12px',
+                                        borderRadius: '12px', border: 'none', cursor: 'pointer',
+                                        background: 'linear-gradient(135deg, #dc2626, #ef4444)',
+                                        color: '#ffffff', fontSize: '12px', fontWeight: 700,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                        boxShadow: '0 4px 16px rgba(239,68,68,0.25)',
+                                        transition: 'all 0.2s', letterSpacing: '0.01em',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(239,68,68,0.35)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,68,68,0.25)'; }}
+                                >
+                                    Accept All
+                                    <ChevronRight style={{ width: '13px', height: '13px' }} />
+                                </button>
+
+                                <button
+                                    onClick={decline}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: '12px', cursor: 'pointer',
+                                        background: 'rgba(255,255,255,0.04)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        color: 'rgba(255,255,255,0.4)', fontSize: '12px', fontWeight: 600,
+                                        transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                                >
+                                    Decline
+                                </button>
                             </div>
-
-                            {/* Close button (top right) */}
-                            <button
-                                onClick={declineCookies}
-                                className="absolute -top-2 -right-2 p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
                         </div>
                     </div>
                 </motion.div>

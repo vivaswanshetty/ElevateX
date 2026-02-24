@@ -44,10 +44,10 @@ socketUtils.init(server);
 app.set('trust proxy', 1);
 
 // Security middleware
-app.use(helmet({
-    contentSecurityPolicy: false, // Disable for development; configure properly for production
-    crossOriginEmbedderPolicy: false,
-}));
+// app.use(helmet({
+//     contentSecurityPolicy: false, // Disable for development; configure properly for production
+//     crossOriginEmbedderPolicy: false,
+// }));
 
 // CORS configuration
 // CORS configuration
@@ -79,6 +79,14 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Serve static uploads
+const path = require('path');
+app.use('/uploads', (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
+
 // Sanitize data to prevent NoSQL injection
 // app.use(mongoSanitize());
 
@@ -97,6 +105,11 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/duels', require('./routes/duelRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/matches', require('./routes/matchRoutes'));
+app.use('/api/alchemy', require('./routes/alchemyRoutes'));
+app.use('/api/waitlist', require('./routes/waitlistRoutes'));
+app.use('/api/seasons', require('./routes/seasonRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // Health check
 app.get('/', (req, res) => {

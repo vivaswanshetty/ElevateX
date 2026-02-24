@@ -31,8 +31,30 @@ const init = (server) => {
     io.on('connection', (socket) => {
         console.log(`🔌 New client connected: ${socket.id}`);
 
+        // Broadcast online count
+        io.emit('online_users', io.engine.clientsCount);
+
+        socket.on('join_user_room', (userId) => {
+            if (userId) {
+                socket.userId = userId; // Store userId on socket instance
+                socket.join(userId);
+                console.log(`👤 User ${userId} joined room ${userId}`);
+            }
+        });
+
+        // ── Typing Indicators ──
+        socket.on('typing', ({ recipientId, senderName }) => {
+            // Emit to the recipient's room
+            io.to(recipientId).emit('user_typing', { senderId: socket.userId, senderName });
+        });
+
+        socket.on('stop_typing', ({ recipientId }) => {
+            io.to(recipientId).emit('user_stop_typing', { senderId: socket.userId });
+        });
+
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id}`);
+            io.emit('online_users', io.engine.clientsCount);
         });
     });
 

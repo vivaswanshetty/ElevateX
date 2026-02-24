@@ -1,214 +1,203 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Zap, Crown, Star, Shield, ArrowRight, Loader2, Lock, IndianRupee } from 'lucide-react';
+import {
+    Check, X, Zap, Crown, Star, Shield, ArrowRight, Loader2, Lock,
+    IndianRupee, DollarSign, Sparkles, Coins, ChevronDown, Gift,
+    Rocket, BadgeCheck, Headphones, TrendingUp, ChevronRight
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const HR = () => (
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+);
+
+// ─── Payment Modal ────────────────────────────────────────────────────────────
 const PaymentModal = ({ isOpen, onClose, plan, billingCycle, currency }) => {
-    const [step, setStep] = useState('summary'); // 'summary', 'processing', 'success', 'failed'
+    const [step, setStep] = useState('summary');
     const [error, setError] = useState('');
     const { currentUser, updateUser } = useAuth();
 
-    const loadRazorpayScript = () => {
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-            script.onload = () => resolve(true);
-            script.onerror = () => resolve(false);
-            document.body.appendChild(script);
-        });
-    };
+    const loadRazorpay = () => new Promise(resolve => {
+        if (window.Razorpay) return resolve(true);
+        const s = document.createElement('script');
+        s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        s.onload = () => resolve(true);
+        s.onerror = () => resolve(false);
+        document.body.appendChild(s);
+    });
 
     const handleConfirm = async () => {
-        setStep('processing');
-        setError('');
-
+        setStep('processing'); setError('');
         try {
-            const isScriptLoaded = await loadRazorpayScript();
-            if (!isScriptLoaded) {
-                throw new Error('Razorpay SDK failed to load. Please check your connection.');
-            }
-
-            const { data: orderData } = await api.post('/payments/create-order', {
-                type: 'subscription',
-                plan: plan.id,
-                billingCycle,
-                currency,
-                amount: plan.priceRaw
+            if (!await loadRazorpay()) throw new Error('Razorpay SDK failed to load.');
+            const { data } = await api.post('/payments/create-order', {
+                type: 'subscription', plan: plan.id, billingCycle, currency, amount: plan.priceRaw
             });
-
-            if (!orderData.success) {
-                throw new Error(orderData.message || 'Failed to create order');
-            }
-
-            const options = {
-                key: orderData.keyId,
-                amount: orderData.amount,
-                currency: orderData.currency,
-                name: "ElevateX",
-                description: `${plan.name} Plan Subscription`,
-                image: "https://your-logo-url.com/logo.png",
-                order_id: orderData.orderId,
-                handler: async function (response) {
+            if (!data.success) throw new Error(data.message || 'Failed to create order');
+            const rzp = new window.Razorpay({
+                key: data.keyId, amount: data.amount, currency: data.currency,
+                name: 'ElevateX', description: `${plan.name} Plan`, order_id: data.orderId,
+                handler: async (r) => {
                     try {
-                        const verifyRes = await api.post('/payments/verify-payment', {
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature
+                        const v = await api.post('/payments/verify-payment', {
+                            razorpay_order_id: r.razorpay_order_id,
+                            razorpay_payment_id: r.razorpay_payment_id,
+                            razorpay_signature: r.razorpay_signature,
+                            type: 'subscription',
+                            plan: plan.id,
+                            billingCycle,
                         });
-
-                        if (verifyRes.data.success) {
+                        if (v.data.success) {
                             setStep('success');
-                            if (updateUser) {
-                                updateUser(currentUser.name, {
-                                    subscription: verifyRes.data.subscription
-                                });
-                            }
-                        } else {
-                            throw new Error(verifyRes.data.message || 'Payment verification failed');
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        setStep('failed');
-                        setError(err.message || 'Verification Failed');
-                    }
+                            if (updateUser) updateUser(currentUser.name, { subscription: v.data.subscription });
+                        } else throw new Error(v.data.message);
+                    } catch (e) { setStep('failed'); setError(e.message); }
                 },
-                prefill: {
-                    name: currentUser?.name || "",
-                    email: currentUser?.email || "",
-                    contact: currentUser?.phone || ""
-                },
-                theme: {
-                    color: "#7c3aed"
-                },
-                modal: {
-                    ondismiss: () => setStep('summary')
-                }
-            };
-
-            const rzp1 = new window.Razorpay(options);
-            rzp1.on('payment.failed', function (response) {
-                setStep('failed');
-                setError(response.error.description);
+                prefill: { name: currentUser?.name || '', email: currentUser?.email || '' },
+                theme: { color: '#ef4444' },
+                modal: { ondismiss: () => setStep('summary') }
             });
-            rzp1.open();
-
-        } catch (err) {
-            console.error(err);
-            setStep('failed');
-            setError(err.response?.data?.message || err.message || 'Something went wrong');
-        }
+            rzp.on('payment.failed', r => { setStep('failed'); setError(r.error.description); });
+            rzp.open();
+        } catch (e) { setStep('failed'); setError(e.response?.data?.message || e.message); }
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/60 backdrop-blur-md"
-                onClick={onClose}
-            />
+        <div className="fixed inset-0 z-[200] flex items-center justify-center px-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0" onClick={onClose}
+                style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(12px)' }} />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: 0.94, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative bg-[#0f0f0f]/95 w-full max-w-lg rounded-[32px] shadow-2xl border border-white/10 overflow-hidden backdrop-blur-xl"
+                exit={{ opacity: 0, scale: 0.94, y: 20 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                className="relative w-full max-w-md rounded-2xl overflow-hidden"
+                style={{
+                    background: '#0a0a0a',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 32px 80px rgba(0,0,0,0.8)',
+                }}
             >
+                {/* Top accent line */}
+                <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, #ef4444, transparent)' }} />
+
+                {/* Summary */}
                 {step === 'summary' && (
-                    <div className="p-8 relative z-10">
+                    <div className="p-8">
                         <div className="flex justify-between items-start mb-8">
                             <div>
-                                <h3 className="text-2xl font-black text-white tracking-tight">Checkout</h3>
-                                <p className="text-gray-400 text-sm">Secure payment via Razorpay</p>
+                                <h3 className="text-xl font-black text-white">Confirm Plan</h3>
+                                <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                                    Secure checkout via Razorpay
+                                </p>
                             </div>
-                            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors group">
-                                <X className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                            <button onClick={onClose}
+                                className="w-8 h-8 flex items-center justify-center rounded-xl transition-colors"
+                                style={{ color: 'rgba(255,255,255,0.40)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(255,255,255,0.80)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.40)'; }}>
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl p-6 mb-8 border border-white/5 relative overflow-hidden">
-                            <div className="flex justify-between items-center relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg transform rotate-3`}>
-                                        <plan.icon className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-white">{plan.name} Plan</h4>
-                                        <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold">
-                                            Billed {billingCycle}
-                                        </div>
-                                    </div>
+                        {/* Plan summary row */}
+                        <div className="rounded-xl p-5 mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-black text-white text-lg">{plan.name} Plan</p>
+                                    <p className="text-xs mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                                        Billed {billingCycle} · {currency}
+                                    </p>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-2xl font-bold text-white tracking-tight">{plan.priceDisplay}</div>
-                                    <div className="text-xs text-gray-500">Total ({currency})</div>
+                                    <p className="text-3xl font-black text-white">{plan.priceDisplay}</p>
+                                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{plan.period}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <ul className="mb-8 space-y-3">
-                            <li className="flex items-center gap-3 text-sm text-gray-300">
-                                <Check className="w-4 h-4 text-green-500" />
-                                <span>Instant activation</span>
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-gray-300">
-                                <Check className="w-4 h-4 text-green-500" />
-                                <span>{plan.coinBonus} credited immediately</span>
-                            </li>
-                            <li className="flex items-center gap-3 text-sm text-gray-300">
-                                <Shield className="w-4 h-4 text-purple-500" />
-                                <span>Secure transaction via Razorpay</span>
-                            </li>
+                        {/* Perks */}
+                        <ul className="space-y-3 mb-8">
+                            {[
+                                { icon: Zap, text: 'Instant activation after payment' },
+                                { icon: Gift, text: `${plan.coinBonus} credited immediately` },
+                                { icon: Shield, text: 'Secure · 256-bit SSL encrypted' },
+                            ].map(({ icon: Icon, text }, i) => (
+                                <li key={i} className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255,255,255,0.60)' }}>
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                                        <Icon className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                                    </div>
+                                    {text}
+                                </li>
+                            ))}
                         </ul>
 
-                        <button
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={handleConfirm}
-                            className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
-                        >
-                            <Lock className="w-4 h-4 group-hover:text-purple-200 transition-colors" />
-                            <span>Pay {plan.priceDisplay}</span>
-                        </button>
+                            className="w-full py-3.5 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2 transition-all"
+                            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', boxShadow: '0 4px 24px rgba(239,68,68,0.25)' }}>
+                            <Lock className="w-4 h-4" /> Pay {plan.priceDisplay} Securely
+                        </motion.button>
+                        <p className="text-center text-xs mt-3" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                            Cancel anytime · No hidden fees
+                        </p>
                     </div>
                 )}
 
+                {/* Processing */}
                 {step === 'processing' && (
-                    <div className="p-16 flex flex-col items-center justify-center text-center">
-                        <Loader2 className="w-16 h-16 text-purple-500 animate-spin mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-2">Processing...</h3>
-                        <p className="text-gray-400">Please complete the payment.</p>
+                    <div className="p-16 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
+                            <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#ef4444' }} />
+                        </div>
+                        <h3 className="text-lg font-black text-white mb-2">Processing</h3>
+                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Complete the payment in the Razorpay window.</p>
                     </div>
                 )}
 
+                {/* Success */}
                 {step === 'success' && (
-                    <div className="p-12 flex flex-col items-center justify-center text-center">
-                        <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-green-500/30"
-                        >
-                            <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                    <div className="p-12 flex flex-col items-center text-center">
+                        <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: 'spring', stiffness: 200 }}
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                            style={{ background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                            <Check className="w-8 h-8" style={{ color: '#22c55e' }} strokeWidth={2.5} />
                         </motion.div>
-                        <h3 className="text-2xl font-black text-white mb-4">You are now {plan.name}!</h3>
-                        <p className="text-gray-400 mb-8">{plan.coinBonus} have been added to your wallet.</p>
-                        <button onClick={onClose} className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:scale-105 transition-transform">
-                            Let's Go!
+                        <h3 className="text-2xl font-black text-white mb-1">You're {plan.name} now</h3>
+                        <p className="text-sm mb-1" style={{ color: 'rgba(255,255,255,0.50)' }}>{plan.coinBonus} added to your wallet.</p>
+                        <p className="text-xs mb-8" style={{ color: '#22c55e' }}>Subscription active 🎉</p>
+                        <button onClick={onClose}
+                            className="px-8 py-3 rounded-xl font-black text-sm text-white transition-all hover:scale-105"
+                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                            Start Exploring →
                         </button>
                     </div>
                 )}
 
+                {/* Failed */}
                 {step === 'failed' && (
-                    <div className="p-12 flex flex-col items-center justify-center text-center">
-                        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 border border-red-500/50">
-                            <X className="w-10 h-10 text-red-500" />
+                    <div className="p-12 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.20)' }}>
+                            <X className="w-8 h-8" style={{ color: '#ef4444' }} />
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Failed</h3>
-                        <p className="text-gray-400 mb-6 max-w-xs mx-auto text-sm">{error}</p>
-                        <button onClick={() => setStep('summary')} className="px-8 py-3 bg-white/10 text-white font-bold rounded-xl">Try Again</button>
+                        <h3 className="text-xl font-black text-white mb-2">Payment Failed</h3>
+                        <p className="text-sm mb-8 max-w-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{error || 'Something went wrong.'}</p>
+                        <button onClick={() => setStep('summary')}
+                            className="px-8 py-3 rounded-xl font-black text-sm text-white transition-all"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                            Try Again
+                        </button>
                     </div>
                 )}
             </motion.div>
@@ -216,317 +205,375 @@ const PaymentModal = ({ isOpen, onClose, plan, billingCycle, currency }) => {
     );
 };
 
+// ─── FAQ Item ─────────────────────────────────────────────────────────────────
+const FAQItem = ({ q, a, index }) => {
+    const [open, setOpen] = useState(false);
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.06 }}
+        >
+            <button onClick={() => setOpen(!open)}
+                className="w-full flex items-center justify-between py-5 text-left group"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="font-semibold text-sm pr-8 transition-colors"
+                    style={{ color: open ? '#fff' : 'rgba(255,255,255,0.70)' }}>
+                    {q}
+                </span>
+                <motion.div animate={{ rotate: open ? 45 : 0 }} transition={{ duration: 0.2 }} className="flex-shrink-0">
+                    <ChevronRight className="w-4 h-4" style={{ color: open ? '#ef4444' : 'rgba(255,255,255,0.30)' }} />
+                </motion.div>
+            </button>
+            <AnimatePresence>
+                {open && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+                        <p className="pt-3 pb-5 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>{a}</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+};
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const Subscription = () => {
     const { currentUser } = useAuth();
     const navigate = useNavigate();
-    const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
-    const [currency, setCurrency] = useState('INR'); // 'INR' | 'USD'
+    const [billingCycle, setBillingCycle] = useState('monthly');
+    const [currency, setCurrency] = useState('INR');
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     const userPlan = currentUser?.subscription?.plan || 'free';
 
     const handleSubscribe = (plan) => {
-        if (!currentUser) {
-            navigate('/login');
-            return;
-        }
-        if (plan.id === userPlan) return;
-
+        if (!currentUser) { navigate('/login'); return; }
+        if (plan.id === userPlan || plan.id === 'free') return;
         setSelectedPlan(plan);
         setShowPaymentModal(true);
     };
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1,
-                delayChildren: 0.2
-            }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: {
-            y: 0,
-            opacity: 1,
-            transition: { type: "spring", stiffness: 100 }
-        }
-    };
-
-    // REVISED PRICING: Accessible & Profitable
-    const getPrice = (planId) => {
-        if (planId === 'free') return '0';
-
+    const getPrice = (id) => {
+        if (id === 'free') return { display: currency === 'INR' ? '₹0' : '$0', raw: 0, period: '/forever' };
         if (currency === 'INR') {
-            if (planId === 'pro') return billingCycle === 'monthly' ? '699' : '6,999';
-            if (planId === 'elite') return billingCycle === 'monthly' ? '1,999' : '19,999';
+            if (id === 'pro') return { display: billingCycle === 'monthly' ? '₹299' : '₹3,399', raw: billingCycle === 'monthly' ? 299 : 3399, period: billingCycle === 'monthly' ? '/mo' : '/yr' };
+            if (id === 'elite') return { display: billingCycle === 'monthly' ? '₹999' : '₹8,599', raw: billingCycle === 'monthly' ? 999 : 8599, period: billingCycle === 'monthly' ? '/mo' : '/yr' };
         } else {
-            if (planId === 'pro') return billingCycle === 'monthly' ? '9.99' : '99';
-            if (planId === 'elite') return billingCycle === 'monthly' ? '29.99' : '299';
+            if (id === 'pro') return { display: billingCycle === 'monthly' ? '$4.99' : '$21.99', raw: billingCycle === 'monthly' ? 4.99 : 21.99, period: billingCycle === 'monthly' ? '/mo' : '/yr' };
+            if (id === 'elite') return { display: billingCycle === 'monthly' ? '$14.99' : '$137.99', raw: billingCycle === 'monthly' ? 14.99 : 137.99, period: billingCycle === 'monthly' ? '/mo' : '/yr' };
         }
-        return '0';
+        return { display: '—', raw: 0, period: '' };
     };
 
     const plans = [
         {
-            id: 'free',
-            name: "Starter",
-            priceDisplay: currency === 'INR' ? '₹0' : '$0',
-            priceRaw: 0,
-            period: "/forever",
-            description: "Essential tools to start your journey.",
+            id: 'free', name: 'Starter', tagline: 'Get started for free.',
             icon: Star,
-            color: "from-blue-400 to-cyan-400",
-            shadowColor: "shadow-blue-500/20",
-            features: [
-                { text: "50 Daily Coins", info: "Earn coins by logging in" },
-                { text: "Access to Basic Tasks", info: "Tasks under 500 Coins reward" },
-                { text: "Community Support" },
-                { text: "Standard Profile" }
-            ],
-            notIncluded: [
-                "Premium High-Value Tasks",
-                "Monthly Coin Bonus",
-                "Verified Badge",
-                "0% Service Fee"
-            ],
-            cta: userPlan === 'free' ? "Current Plan" : "Downgrade",
-            ctaStyle: "secondary"
+            coinBonus: '0 Coins',
+            features: ['50 Daily Login Coins', 'Basic Task Access', 'Community Support', 'Standard Profile'],
+            notIncluded: ['Monthly Coin Bonus', 'Premium Tasks', 'Verified Badge', '0% Service Fee'],
         },
         {
-            id: 'pro',
-            name: "Pro",
-            priceDisplay: currency === 'INR' ? `₹${getPrice('pro')}` : `$${getPrice('pro')}`,
-            priceRaw: currency === 'INR' ? (billingCycle === 'monthly' ? 699 : 6999) : (billingCycle === 'monthly' ? 9.99 : 99),
-            period: billingCycle === 'monthly' ? "/month" : "/year",
-            description: "For serious freelancers ready to scale.",
-            icon: Zap,
-            color: "from-purple-500 to-pink-500",
-            shadowColor: "shadow-purple-500/40",
-            popular: true,
-            coinBonus: "500 Coins/mo",
-            features: [
-                { text: "500 Monthly Coins", highlight: true, info: "Worth ₹1000 in value!" },
-                { text: "Unlimited Task Applications" },
-                { text: "Verified Pro Badge" },
-                { text: "Access to Premium Tasks", info: "Exclusive high-reward tasks (>500 Coins)" },
-                { text: "Priority Support" }
-            ],
-            notIncluded: ["0% Service Fee", "Dedicated Account Manager"],
-            cta: userPlan === 'pro' ? "Current Plan" : "Upgrade to Pro",
-            ctaStyle: "primary"
+            id: 'pro', name: 'Pro', tagline: 'For serious freelancers.',
+            icon: Zap, popular: true,
+            coinBonus: '500 Coins/mo',
+            features: ['500 Monthly Coins', 'Unlimited Applications', 'Verified Pro Badge', 'Premium Tasks', 'Priority Support'],
+            notIncluded: ['0% Service Fee', 'Dedicated Manager'],
         },
         {
-            id: 'elite',
-            name: "Elite",
-            priceDisplay: currency === 'INR' ? `₹${getPrice('elite')}` : `$${getPrice('elite')}`,
-            priceRaw: currency === 'INR' ? (billingCycle === 'monthly' ? 1999 : 19999) : (billingCycle === 'monthly' ? 29.99 : 299),
-            period: billingCycle === 'monthly' ? "/month" : "/year",
-            description: "Maximum power for agencies and top tier.",
+            id: 'elite', name: 'Elite', tagline: 'Maximum power.',
             icon: Crown,
-            color: "from-yellow-400 to-orange-500",
-            shadowColor: "shadow-orange-500/40",
-            coinBonus: "2500 Coins/mo",
-            features: [
-                { text: "2500 Monthly Coins", highlight: true, info: "Worth ₹5000 - Pays for itself!" },
-                { text: "0% Service Fee on Earnings" },
-                { text: "Dedicated Account Manager" },
-                { text: "Early Access to Features" },
-                { text: "Custom Profile Theme" }
-            ],
+            coinBonus: '2,500 Coins/mo',
+            features: ['2,500 Monthly Coins', '0% Service Fee', 'Dedicated Manager', 'Early Feature Access', 'Custom Profile Theme'],
             notIncluded: [],
-            cta: userPlan === 'elite' ? "Current Plan" : "Get Elite Status",
-            ctaStyle: "elite"
-        }
+        },
+    ].map(p => {
+        const price = getPrice(p.id);
+        return { ...p, priceDisplay: price.display, priceRaw: price.raw, period: price.period };
+    });
+
+    const COMPARE = [
+        { label: 'Daily Login Coins', free: '50', pro: '50', elite: '50' },
+        { label: 'Monthly Bonus Coins', free: '—', pro: '500', elite: '2,500' },
+        { label: 'Task Applications', free: 'Limited', pro: 'Unlimited', elite: 'Unlimited' },
+        { label: 'Premium Tasks', free: false, pro: true, elite: true },
+        { label: 'Verified Badge', free: false, pro: true, elite: true },
+        { label: 'Service Fee', free: '5%', pro: '2%', elite: '0%' },
+        { label: 'Account Manager', free: false, pro: false, elite: true },
+        { label: 'Custom Profile Theme', free: false, pro: false, elite: true },
+    ];
+
+    const FAQS = [
+        { q: 'Can I cancel my subscription anytime?', a: 'Yes. Cancel anytime from your account settings. Benefits remain active until the end of your billing period.' },
+        { q: 'What happens to my coins if I downgrade?', a: 'Your existing coins are never taken away. Only future monthly bonuses will reflect your new plan.' },
+        { q: 'Is there a free trial?', a: 'The Starter plan is free forever with no credit card required. Pro and Elite plans can be refunded within 24 hours of purchase.' },
+        { q: 'How are coins credited?', a: 'Monthly bonus coins are credited instantly upon subscription activation and on each renewal date.' },
+        { q: 'What payment methods are accepted?', a: 'All major credit/debit cards, UPI, net banking, and wallets via Razorpay.' },
     ];
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden font-sans selection:bg-purple-500/30">
+        <div className="min-h-screen text-white" style={{ background: '#050505' }}>
             <AnimatePresence>
                 {showPaymentModal && selectedPlan && (
-                    <PaymentModal
-                        isOpen={showPaymentModal}
-                        onClose={() => setShowPaymentModal(false)}
-                        plan={selectedPlan}
-                        billingCycle={billingCycle}
-                        currency={currency}
-                    />
+                    <PaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)}
+                        plan={selectedPlan} billingCycle={billingCycle} currency={currency} />
                 )}
             </AnimatePresence>
 
-            {/* Enhanced Ambient Background Effects */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <motion.div
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.3, 0.2] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-purple-900/20 rounded-full blur-[120px]"
-                />
-                <motion.div
-                    animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                    className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-blue-900/20 rounded-full blur-[120px]"
-                />
-            </div>
+            {/* Subtle radial glow */}
+            <div className="fixed inset-0 z-0 pointer-events-none"
+                style={{ background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(239,68,68,0.05) 0%, transparent 70%)' }} />
 
-            <div className="relative z-10 container mx-auto px-4 py-20 pb-0">
-                <motion.div
-                    className="text-center max-w-3xl mx-auto mb-16"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="inline-block mb-4 px-4 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-300 text-sm font-semibold tracking-wider uppercase backdrop-blur-md shadow-inner shadow-purple-500/10"
-                    >
-                        Premium Access
-                    </motion.div>
-                    <h1 className="text-5xl md:text-7xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400 tracking-tight">
-                        Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">Power</span>
-                    </h1>
-                    <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-8">
-                        Unlock the full potential of your career with massive coin bonuses and exclusive features.
-                    </p>
+            <div className="relative z-10 max-w-5xl mx-auto px-6 pt-36 pb-32">
 
-                    {/* CONTROLS */}
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 bg-white/5 backdrop-blur-xl p-3 px-8 rounded-2xl border border-white/10 w-fit mx-auto shadow-2xl">
-                        <div className="flex items-center gap-4">
-                            <span className={`text-sm font-bold transition-colors ${billingCycle === 'monthly' ? 'text-white' : 'text-gray-500'}`}>Monthly</span>
-                            <button
-                                onClick={() => setBillingCycle(prev => prev === 'monthly' ? 'yearly' : 'monthly')}
-                                className="w-14 h-7 bg-gray-800 rounded-full relative px-1 transition-colors hover:bg-gray-700 shadow-inner"
-                            >
-                                <motion.div
-                                    className="w-5 h-5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full shadow-lg mt-1"
-                                    layout
-                                    animate={{ x: billingCycle === 'monthly' ? 0 : 28 }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            </button>
-                            <span className={`text-sm font-bold transition-colors ${billingCycle === 'yearly' ? 'text-white' : 'text-gray-500'}`}>
-                                Yearly <span className="text-green-400 text-[10px] ml-1 font-bold bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wide border border-green-500/20">Save 17%</span>
-                            </span>
-                        </div>
-
-                        <div className="hidden md:block w-px h-8 bg-white/10" />
-
-                        <div className="flex items-center bg-black/20 rounded-xl p-1 border border-white/5">
-                            <button
-                                onClick={() => setCurrency('INR')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'INR' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/25' : 'bg-transparent text-gray-500 hover:text-white'}`}
-                            >
-                                <IndianRupee className="w-3 h-3" /> INR
-                            </button>
-                            <button
-                                onClick={() => setCurrency('USD')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'USD' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' : 'bg-transparent text-gray-500 hover:text-white'}`}
-                            >
-                                <DollarSign className="w-3 h-3" /> USD
-                            </button>
-                        </div>
+                {/* ── Hero ── */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+                    className="text-center mb-20">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-xs font-bold tracking-widest uppercase"
+                        style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                        <Sparkles className="w-3 h-3" /> Plans & Pricing
                     </div>
-
+                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-5 leading-none">
+                        Invest in your<br />
+                        <span style={{ color: '#ef4444' }}>growth.</span>
+                    </h1>
+                    <p className="text-lg max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                        Unlock coin bonuses, premium tasks, and exclusive features. Start free, upgrade when ready.
+                    </p>
                 </motion.div>
 
-                {/* Plans Grid */}
-                <motion.div
-                    className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                >
-                    {plans.map((plan) => (
-                        <motion.button
-                            key={plan.name}
-                            variants={itemVariants}
-                            whileHover={{ y: -10, transition: { duration: 0.3 } }}
-                            className={`relative w-full text-left rounded-3xl p-1 group ${plan.popular ? 'md:-mt-8 md:mb-8 z-10' : ''}`}
-                            onClick={() => plan.ctaStyle !== 'secondary' && handleSubscribe(plan)}
-                        >
-                            <div className={`absolute inset-0 rounded-3xl bg-gradient-to-b ${plan.popular ? 'from-purple-500 via-pink-500 to-purple-900' : 'from-gray-800 to-gray-900'} opacity-100 transition-all duration-500 group-hover:opacity-100 group-hover:shadow-[0_0_40px_-10px_rgba(168,85,247,0.3)]`} />
+                {/* ── Controls ── */}
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                    className="flex items-center justify-center gap-4 mb-16 flex-wrap">
+                    {/* Billing toggle */}
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <button onClick={() => setBillingCycle('monthly')}
+                            className="text-sm font-bold transition-colors px-2 py-1 rounded-lg"
+                            style={{ color: billingCycle === 'monthly' ? '#fff' : 'rgba(255,255,255,0.35)', background: billingCycle === 'monthly' ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
+                            Monthly
+                        </button>
+                        <button onClick={() => setBillingCycle('yearly')}
+                            className="text-sm font-bold transition-colors px-2 py-1 rounded-lg flex items-center gap-2"
+                            style={{ color: billingCycle === 'yearly' ? '#fff' : 'rgba(255,255,255,0.35)', background: billingCycle === 'yearly' ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
+                            Yearly
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                                style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.20)' }}>
+                                −17%
+                            </span>
+                        </button>
+                    </div>
 
-                            <div className="relative h-full bg-[#0a0a0a] rounded-[22px] p-8 flex flex-col overflow-hidden transition-colors group-hover:bg-[#0f0f0f]">
-                                {plan.popular && (
-                                    <div className="absolute top-0 right-0 bg-gradient-to-bl from-purple-600 to-pink-600 text-white text-[10px] font-bold px-4 py-1.5 rounded-bl-xl tracking-widest uppercase">
-                                        Best Value
+                    {/* Currency toggle */}
+                    <div className="flex items-center p-1 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        {[{ id: 'INR', Icon: IndianRupee }, { id: 'USD', Icon: DollarSign }].map(({ id, Icon }) => (
+                            <button key={id} onClick={() => setCurrency(id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all"
+                                style={{
+                                    background: currency === id ? 'rgba(239,68,68,0.12)' : 'transparent',
+                                    color: currency === id ? '#ef4444' : 'rgba(255,255,255,0.35)',
+                                    border: currency === id ? '1px solid rgba(239,68,68,0.20)' : '1px solid transparent',
+                                }}>
+                                <Icon className="w-3 h-3" /> {id}
+                            </button>
+                        ))}
+                    </div>
+                </motion.div>
+
+                {/* ── Plan Cards ── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-24">
+                    {plans.map((plan, idx) => {
+                        const isActive = userPlan === plan.id;
+                        const isPro = plan.popular;
+                        return (
+                            <motion.div key={plan.id}
+                                initial={{ opacity: 0, y: 24 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 + idx * 0.08 }}
+                                className={`relative flex flex-col rounded-2xl overflow-hidden ${isPro ? 'md:-mt-4 md:mb-4' : ''}`}
+                                style={{
+                                    background: isPro ? 'rgba(239,68,68,0.04)' : 'rgba(255,255,255,0.02)',
+                                    border: isPro ? '1px solid rgba(239,68,68,0.22)' : '1px solid rgba(255,255,255,0.07)',
+                                    boxShadow: isPro ? '0 0 60px rgba(239,68,68,0.08)' : 'none',
+                                }}
+                            >
+                                {/* Popular label */}
+                                {isPro && (
+                                    <div className="absolute top-0 left-0 right-0 flex justify-center">
+                                        <div className="px-4 py-1 text-[10px] font-black tracking-widest uppercase rounded-b-lg"
+                                            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff' }}>
+                                            Most Popular
+                                        </div>
                                     </div>
                                 )}
 
-                                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-6 shadow-lg ${plan.shadowColor} group-hover:scale-110 transition-transform duration-300`}>
-                                    <plan.icon className="w-7 h-7 text-white" />
-                                </div>
+                                <div className={`p-7 flex flex-col flex-1 ${isPro ? 'pt-10' : ''}`}>
+                                    {/* Plan name */}
+                                    <div className="mb-6">
+                                        <p className="text-xs font-black tracking-widest uppercase mb-1"
+                                            style={{ color: isPro ? '#ef4444' : 'rgba(255,255,255,0.35)' }}>
+                                            {plan.name}
+                                        </p>
+                                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.40)' }}>{plan.tagline}</p>
+                                    </div>
 
-                                <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                                <p className="text-gray-400 text-sm mb-6 h-10 leading-snug">{plan.description}</p>
-
-                                <div className="flex items-end gap-1 mb-6">
-                                    <span className="text-5xl font-black text-white tracking-tighter">{plan.priceDisplay}</span>
-                                    <span className="text-gray-500 font-bold mb-1.5 text-xs uppercase tracking-wide opacity-60">{plan.period}</span>
-                                </div>
-
-                                <div className="w-full h-px bg-gray-800/50 mb-6 group-hover:bg-gray-700/50 transition-colors" />
-
-                                <ul className="space-y-4 mb-8 flex-1">
-                                    {plan.features.map((feature, i) => (
-                                        <li key={i} className="flex items-start gap-3 group/item">
-                                            <div className="mt-0.5 w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-                                                <Check className="w-3 h-3 text-green-500" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <span className={`text-sm font-medium leading-tight ${feature.highlight ? 'text-white font-bold' : 'text-gray-300'}`}>
-                                                    {feature.text}
+                                    {/* Price */}
+                                    <div className="mb-6">
+                                        <div className="flex items-end gap-1.5">
+                                            <span className="text-5xl font-black tracking-tighter text-white leading-none">
+                                                {plan.priceDisplay}
+                                            </span>
+                                            {plan.period && (
+                                                <span className="text-sm mb-1.5 font-medium" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                                                    {plan.period}
                                                 </span>
-                                                {feature.info && (
-                                                    <p className="text-[10px] text-gray-500 mt-0.5">{feature.info}</p>
-                                                )}
+                                            )}
+                                        </div>
+                                        {plan.coinBonus !== '0 Coins' && (
+                                            <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
+                                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}>
+                                                <Coins className="w-3 h-3" style={{ color: '#fbbf24' }} />
+                                                {plan.coinBonus}
                                             </div>
-                                        </li>
-                                    ))}
-                                    {plan.notIncluded.map((feature, i) => (
-                                        <li key={i} className="flex items-start gap-3 opacity-40">
-                                            <div className="mt-0.5 w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
-                                                <X className="w-3 h-3 text-gray-500" />
-                                            </div>
-                                            <span className="text-gray-500 text-sm leading-tight">{feature}</span>
-                                        </li>
-                                    ))}
-                                </ul>
+                                        )}
+                                    </div>
 
-                                <div
-                                    className={`w-full py-4 rounded-xl font-bold text-sm tracking-wide transition-all border text-center ${userPlan === plan.id
-                                        ? 'bg-gray-800/50 border-gray-700/50 text-gray-500 cursor-default'
-                                        : plan.ctaStyle === 'primary'
-                                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 border-transparent text-white shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 group-hover:scale-[1.02]'
-                                            : plan.ctaStyle === 'elite'
-                                                ? 'bg-gradient-to-r from-yellow-500 to-orange-600 border-transparent text-black shadow-lg shadow-orange-500/25 group-hover:shadow-orange-500/40 group-hover:scale-[1.02]'
-                                                : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
-                                        }`}
-                                >
-                                    {plan.cta}
+                                    <HR />
+
+                                    {/* Features */}
+                                    <ul className="space-y-3 my-6 flex-1">
+                                        {plan.features.map((f, i) => (
+                                            <li key={i} className="flex items-center gap-2.5 text-sm"
+                                                style={{ color: 'rgba(255,255,255,0.75)' }}>
+                                                <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                                    style={{ background: 'rgba(34,197,94,0.12)' }}>
+                                                    <Check className="w-2.5 h-2.5" style={{ color: '#22c55e' }} />
+                                                </div>
+                                                {f}
+                                            </li>
+                                        ))}
+                                        {plan.notIncluded.map((f, i) => (
+                                            <li key={i} className="flex items-center gap-2.5 text-sm"
+                                                style={{ color: 'rgba(255,255,255,0.22)' }}>
+                                                <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                                    style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                                    <X className="w-2.5 h-2.5" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                                                </div>
+                                                {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+
+                                    {/* CTA */}
+                                    <motion.button
+                                        whileHover={!isActive && plan.id !== 'free' ? { scale: 1.02 } : {}}
+                                        whileTap={!isActive && plan.id !== 'free' ? { scale: 0.98 } : {}}
+                                        onClick={() => handleSubscribe(plan)}
+                                        disabled={isActive || plan.id === 'free'}
+                                        className="w-full py-3.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2"
+                                        style={
+                                            isActive
+                                                ? { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)', cursor: 'default' }
+                                                : plan.id === 'free'
+                                                    ? { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)', cursor: 'default' }
+                                                    : isPro
+                                                        ? { background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', boxShadow: '0 4px 20px rgba(239,68,68,0.25)' }
+                                                        : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: '#fff' }
+                                        }
+                                    >
+                                        {isActive
+                                            ? <><BadgeCheck className="w-4 h-4" /> Current Plan</>
+                                            : plan.id === 'free'
+                                                ? 'Free Forever'
+                                                : <>{plan.id === 'elite' ? 'Get Elite' : 'Upgrade to Pro'} <ArrowRight className="w-4 h-4" /></>
+                                        }
+                                    </motion.button>
                                 </div>
+                            </motion.div>
+                        );
+                    })}
+                </div>
+
+                {/* ── Comparison Table ── */}
+                <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                    className="mb-24">
+                    <h2 className="text-2xl font-black text-white mb-1">Compare plans</h2>
+                    <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.40)' }}>Everything you need to make the right choice.</p>
+
+                    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+                        {/* Header */}
+                        <div className="grid grid-cols-4" style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div className="p-4 text-xs font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.30)' }}>Feature</div>
+                            {plans.map(p => (
+                                <div key={p.id} className="p-4 text-center">
+                                    <span className="text-xs font-black uppercase tracking-widest"
+                                        style={{ color: p.popular ? '#ef4444' : 'rgba(255,255,255,0.50)' }}>
+                                        {p.name}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Rows */}
+                        {COMPARE.map((row, i) => (
+                            <div key={i} className="grid grid-cols-4"
+                                style={{ borderBottom: i < COMPARE.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                <div className="p-4 text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>{row.label}</div>
+                                {[row.free, row.pro, row.elite].map((val, j) => (
+                                    <div key={j} className="p-4 flex items-center justify-center"
+                                        style={{ background: j === 1 ? 'rgba(239,68,68,0.03)' : 'transparent' }}>
+                                        {typeof val === 'boolean'
+                                            ? val
+                                                ? <Check className="w-4 h-4" style={{ color: '#22c55e' }} />
+                                                : <div className="w-4 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
+                                            : <span className="text-sm font-bold text-white">{val}</span>
+                                        }
+                                    </div>
+                                ))}
                             </div>
-                        </motion.button>
+                        ))}
+                    </div>
+                </motion.div>
+
+                {/* ── Trust strip ── */}
+                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+                    className="flex flex-wrap justify-center gap-8 mb-24">
+                    {[
+                        { icon: Shield, text: 'Razorpay Secured' },
+                        { icon: Zap, text: 'Cancel Anytime' },
+                        { icon: Sparkles, text: 'Instant Activation' },
+                        { icon: BadgeCheck, text: '10,000+ Users' },
+                    ].map(({ icon: Icon, text }, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            <Icon className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                            {text}
+                        </div>
                     ))}
                 </motion.div>
 
-                <motion.div
-                    className="mt-24 text-center pb-20"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1 }}
-                >
-                    <p className="text-gray-500 mb-4 font-medium">Have questions?</p>
-                    <Link to="/contact" className="text-white font-semibold hover:text-purple-400 transition-colors inline-flex items-center gap-2 group bg-white/5 px-6 py-2 rounded-full hover:bg-white/10 border border-white/5">
-                        Contact Support
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </Link>
+                {/* ── FAQ ── */}
+                <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                    className="max-w-2xl mx-auto mb-24">
+                    <h2 className="text-2xl font-black text-white mb-1">FAQ</h2>
+                    <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.40)' }}>Common questions, answered.</p>
+                    {FAQS.map((faq, i) => <FAQItem key={i} {...faq} index={i} />)}
                 </motion.div>
+
+                {/* ── Footer CTA ── */}
+                <div className="text-center">
+                    <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.35)' }}>Still have questions?</p>
+                    <Link to="/contact"
+                        className="inline-flex items-center gap-2 text-sm font-bold transition-colors"
+                        style={{ color: 'rgba(255,255,255,0.55)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.55)'}>
+                        Contact Support <ArrowRight className="w-4 h-4" />
+                    </Link>
+                </div>
             </div>
         </div>
     );

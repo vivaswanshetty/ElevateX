@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUsers, searchUsers, getUserById, getProfile, updateUserProfile, changePassword, deleteAccount, followUser, unfollowUser, acceptFollowRequest, rejectFollowRequest, getUserFollowers, getUserFollowing } = require('../controllers/userController');
+const { getUsers, searchUsers, getUserById, getProfile, updateUserProfile, changePassword, deleteAccount, followUser, unfollowUser, acceptFollowRequest, rejectFollowRequest, getUserFollowers, getUserFollowing, getLeaderboard } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.delete('/account', protect, deleteAccount);
 
 router.get('/', getUsers);
 router.get('/search', searchUsers);
+router.get('/leaderboard', getLeaderboard);
 router.get('/:id', getUserById);
 router.get('/:id/followers', getUserFollowers);
 router.get('/:id/following', getUserFollowing);

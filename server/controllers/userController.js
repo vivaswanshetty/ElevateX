@@ -57,6 +57,9 @@ const getProfile = async (req, res) => {
             education: user.education,
             isPrivate: user.isPrivate,
             followRequests: user.followRequests,
+            essences: user.essences,
+            relics: user.relics,
+            chatSettings: user.chatSettings,
             token: req.token,
         });
     } else {
@@ -90,6 +93,10 @@ const updateUserProfile = async (req, res) => {
             user.isPrivate = req.body.isPrivate;
         }
 
+        if (req.body.chatSettings) {
+            user.chatSettings = req.body.chatSettings;
+        }
+
         if (req.body.password) {
             user.password = req.body.password;
         }
@@ -112,6 +119,9 @@ const updateUserProfile = async (req, res) => {
             education: updatedUser.education,
             isPrivate: updatedUser.isPrivate,
             followRequests: updatedUser.followRequests,
+            essences: updatedUser.essences,
+            relics: updatedUser.relics,
+            chatSettings: updatedUser.chatSettings,
             token: req.token, // Keep the same token
         });
     } else {
@@ -418,6 +428,27 @@ const getUserFollowing = async (req, res) => {
     }
 };
 
+// @desc    Get leaderboard (sorted users)
+// @route   GET /api/users/leaderboard
+// @access  Public
+const getLeaderboard = async (req, res) => {
+    try {
+        const sort = req.query.sort || 'xp';
+        const validSorts = ['xp', 'coins', 'level'];
+        const sortField = validSorts.includes(sort) ? sort : 'xp';
+
+        const users = await User.find({})
+            .select('name username avatar xp coins level tasksCompleted rankChange')
+            .sort({ [sortField]: -1 })
+            .limit(50);
+
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+        res.status(500).json({ message: 'Failed to fetch leaderboard' });
+    }
+};
+
 module.exports = {
     getUsers,
     searchUsers,
@@ -431,5 +462,6 @@ module.exports = {
     acceptFollowRequest,
     rejectFollowRequest,
     getUserFollowers,
-    getUserFollowing
+    getUserFollowing,
+    getLeaderboard
 };

@@ -19,6 +19,7 @@ import Activity from './pages/Activity';
 import SinglePost from './pages/SinglePost';
 import AlchemyLab from './pages/AlchemyLab';
 import ResonanceRoom from './pages/ResonanceRoom';
+import ChatSettings from './pages/ChatSettings';
 
 import SecurePayments from './pages/SecurePayments';
 import AIMatching from './pages/AIMatching';
@@ -33,9 +34,12 @@ import Terms from './pages/Terms';
 import Blog from './pages/Blog';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
+import CookiePolicy from './pages/CookiePolicy';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import TechStack from './pages/TechStack';
+import SubscriptionTicker from './components/SubscriptionTicker';
+import Analytics from './pages/Analytics';
 
 import ScrollToTop from './components/ScrollToTop';
 import CookieConsent from './components/CookieConsent';
@@ -59,6 +63,7 @@ function App() {
                                 <Route path="/leaderboard" element={<Leaderboard />} />
                                 <Route path="/wallet" element={<Wallet />} />
                                 <Route path="/chat" element={<Chat />} />
+                                <Route path="/chat-settings" element={<ChatSettings />} />
                                 <Route path="/search" element={<UserSearch />} />
                                 <Route path="/feed" element={<Feed />} />
                                 <Route path="/post/:id" element={<SinglePost />} />
@@ -67,10 +72,13 @@ function App() {
                                 <Route path="/duel" element={<ProductivityDuel />} />
                                 <Route path="/alchemy" element={<AlchemyLab />} />
                                 <Route path="/resonance" element={<ResonanceRoom />} />
+                                <Route path="/analytics" element={<Analytics />} />
                                 <Route path="/tech-stack/:category?" element={<TechStack />} />
                                 <Route path="/future/payments" element={<SecurePayments />} />
                                 <Route path="/future/ai-matching" element={<AIMatching />} />
+                                <Route path="/aimatching" element={<AIMatching />} />
                                 <Route path="/future/community" element={<CommunityEvents />} />
+                                <Route path="/community" element={<CommunityEvents />} />
                                 <Route path="/future/mobile-app" element={<MobileApp />} />
 
                                 {/* Info pages */}
@@ -80,12 +88,14 @@ function App() {
                                 <Route path="/blog" element={<Blog />} />
                                 <Route path="/faq" element={<FAQ />} />
                                 <Route path="/contact" element={<Contact />} />
+                                <Route path="/cookies" element={<CookiePolicy />} />
 
                                 {/* Password Reset */}
                                 <Route path="/forgot-password" element={<ForgotPassword />} />
                                 <Route path="/reset-password/:token" element={<ResetPassword />} />
                             </Routes>
                         </main>
+                        <SubscriptionTicker />
                         <Footer />
                     </div>
                 </Router>

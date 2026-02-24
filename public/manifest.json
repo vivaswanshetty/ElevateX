@@ -1,0 +1,24 @@
+{
+    "name": "ElevateX",
+    "short_name": "ElevateX",
+    "description": "The premium skill-exchange platform. Post tasks, earn XP, and level up.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#050505",
+    "theme_color": "#ef4444",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/vite.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "productivity",
+        "business",
+        "education"
+    ],
+    "lang": "en-US"
+}

@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { Upload, X, AlertCircle, Sparkles, Calendar as CalendarIcon, FileText, Tag, Code, Zap, Coffee, Music, Sun, Cloud, Flag, Bookmark, Compass, Rocket, Smile, Cpu, Globe, Layers } from 'lucide-react';
+import {
+    Upload, X, AlertCircle, Calendar as CalendarIcon, FileText,
+    Coins, CheckCircle, ArrowRight, Lock, Info, ChevronRight
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import AuthModal from '../components/AuthModal';
 
-const CATEGORIES = ["Development", "Design", "Marketing", "Writing", "Data Science", "Video & Animation", "Music & Audio", "Business", "Lifestyle"];
+// ─── Constants ────────────────────────────────────────────────────────────────
+const CATEGORIES = [
+    "Development", "Design", "Marketing", "Writing",
+    "Data Science", "Video & Animation", "Music & Audio", "Business", "Lifestyle"
+];
+
 const SUBCATEGORIES = {
     Development: ['Web Development', 'Mobile App', 'Debugging', 'API Integration', 'Automation', 'Desktop App', 'Database Design'],
     Design: ['UI/UX', 'Logo', 'Poster', 'Branding', 'Illustration', 'Print Design', '3D Design'],
@@ -20,474 +28,556 @@ const SUBCATEGORIES = {
 };
 
 const REWARD_TIERS = [
-    { id: 'small', label: 'Small', coins: 20, color: 'from-blue-500 to-cyan-500' },
-    { id: 'medium', label: 'Medium', coins: 50, color: 'from-purple-500 to-pink-500' },
-    { id: 'large', label: 'Large', coins: 100, color: 'from-orange-500 to-red-500' },
-    { id: 'premium', label: 'Premium', coins: 200, color: 'from-yellow-500 to-amber-500' }
+    { id: 'small', label: 'Starter', coins: 20, xp: 12, desc: 'Quick tasks' },
+    { id: 'medium', label: 'Standard', coins: 50, xp: 15, desc: 'Regular work' },
+    { id: 'large', label: 'Advanced', coins: 100, xp: 20, desc: 'Complex tasks' },
+    { id: 'premium', label: 'Premium', coins: 200, xp: 30, desc: 'Expert level' },
 ];
 
+const STEPS = ['Basics', 'Reward', 'Details', 'Review'];
+
+// ─── Shared input style ───────────────────────────────────────────────────────
+const inputCls = `w-full bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3.5
+    text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.05]
+    outline-none transition-all text-sm font-light`;
+
+// ─── Field wrapper ────────────────────────────────────────────────────────────
+const Field = ({ label, hint, required, children }) => (
+    <div>
+        <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold tracking-widest uppercase text-white/30">
+                {label}{required && <span className="text-red-400 ml-1">*</span>}
+            </label>
+            {hint && <span className="text-[10px] text-white/20">{hint}</span>}
+        </div>
+        {children}
+    </div>
+);
+
+// ─── Step indicator ───────────────────────────────────────────────────────────
+const StepIndicator = ({ step }) => (
+    <div className="flex items-center gap-2">
+        {STEPS.map((label, i) => (
+            <React.Fragment key={i}>
+                <div className="flex items-center gap-1.5">
+                    <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
+                        style={{
+                            background: i < step
+                                ? 'rgba(239,68,68,0.15)'
+                                : i === step
+                                    ? 'linear-gradient(135deg,#dc2626,#ef4444)'
+                                    : 'rgba(255,255,255,0.04)',
+                            color: i < step ? '#ef4444' : i === step ? '#fff' : 'rgba(255,255,255,0.50)',
+                            border: i < step ? '1px solid rgba(239,68,68,0.3)' : i === step ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                        }}
+                    >
+                        {i < step ? '✓' : i + 1}
+                    </div>
+                    <span
+                        className="text-[10px] font-semibold tracking-wider uppercase hidden sm:block"
+                        style={{ color: i === step ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.40)' }}
+                    >
+                        {label}
+                    </span>
+                </div>
+                {i < STEPS.length - 1 && (
+                    <div
+                        className="h-px flex-1 max-w-[24px] transition-all"
+                        style={{ background: i < step ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)' }}
+                    />
+                )}
+            </React.Fragment>
+        ))}
+    </div>
+);
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const CreateTask = () => {
     const { currentUser } = useAuth();
     const { postTask } = useData();
     const navigate = useNavigate();
     const [showAuth, setShowAuth] = useState(false);
+    const [step, setStep] = useState(0);
 
     const [formData, setFormData] = useState({
-        title: '',
-        category: 'Development',
-        sub: 'Web Development',
-        rewardId: 'small',
-        desc: '',
-        deadline: ''
+        title: '', category: 'Development', sub: 'Web Development',
+        rewardId: 'small', desc: '', deadline: ''
     });
     const [files, setFiles] = useState([]);
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // ── Guest gate ──
     if (!currentUser) {
         return (
-            <div className="pt-32 min-h-screen container mx-auto px-6 text-center">
-                <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Please login to post a task</h2>
-                <button onClick={() => setShowAuth(true)} className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold transition-transform hover:scale-105">
-                    Login
-                </button>
+            <div className="pt-32 min-h-screen flex items-center justify-center px-6" style={{ background: '#050505' }}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-sm">
+                    <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                        <Lock className="w-7 h-7 text-white/30" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Sign in required</h2>
+                    <p className="text-sm text-white/25 mb-8 font-light">You need to be logged in to post a task.</p>
+                    <button
+                        onClick={() => setShowAuth(true)}
+                        className="px-8 py-3.5 rounded-full text-sm font-semibold text-white transition-all"
+                        style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', boxShadow: '0 0 0 1px rgba(239,68,68,0.3)' }}
+                    >
+                        Sign In
+                    </button>
+                </motion.div>
                 <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
             </div>
         );
     }
 
-    const compressImage = (file) => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1200; // Reasonable max width for quality
-                    const scaleSize = MAX_WIDTH / img.width;
-
-                    if (img.width > MAX_WIDTH) {
-                        canvas.width = MAX_WIDTH;
-                        canvas.height = img.height * scaleSize;
-                    } else {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                    }
-
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                    // Compress to 0.7 quality jpeg to significantly reduce size
-                    // This typically brings a 5MB png down to <500KB jpeg
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    resolve({
-                        name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
-                        type: 'image/jpeg',
-                        data: dataUrl
-                    });
-                };
+    // ── Image compression ──
+    const compressImage = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX = 1200;
+                const scale = MAX / img.width;
+                canvas.width = img.width > MAX ? MAX : img.width;
+                canvas.height = img.width > MAX ? img.height * scale : img.height;
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve({ name: file.name.replace(/\.[^/.]+$/, '') + '.jpg', type: 'image/jpeg', data: canvas.toDataURL('image/jpeg', 0.7) });
             };
-        });
-    };
+        };
+    });
 
     const handleFileChange = async (e) => {
-        const selectedFiles = Array.from(e.target.files || []);
-
-        if (selectedFiles.length + files.length > 5) {
-            setError("You can only upload a maximum of 5 files.");
-            return;
-        }
-
-        const processedFiles = [];
-        const MAX_SIZE_MB = 2; // 2MB limit for non-images
-
-        for (const file of selectedFiles) {
+        const selected = Array.from(e.target.files || []);
+        if (selected.length + files.length > 5) { setError('Max 5 files allowed'); return; }
+        const processed = [];
+        for (const file of selected) {
             if (file.type.startsWith('image/')) {
-                try {
-                    const compressed = await compressImage(file);
-                    processedFiles.push(compressed);
-                } catch (err) {
-                    console.error("Error compressing image:", err);
-                    setError("Failed to process image: " + file.name);
-                }
+                try { processed.push(await compressImage(file)); }
+                catch { setError('Failed to process: ' + file.name); }
             } else {
-                // Check size for non-images
-                if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-                    setError(`File ${file.name} is too large. Max size is ${MAX_SIZE_MB}MB.`);
-                    continue;
-                }
-
-                // Read as before
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    setFiles(prev => [...prev, { name: file.name, type: file.type, data: ev.target.result }]);
-                };
-                reader.readAsDataURL(file);
+                if (file.size > 2 * 1024 * 1024) { setError(`${file.name} exceeds 2MB limit`); continue; }
+                await new Promise(res => {
+                    const reader = new FileReader();
+                    reader.onload = ev => { processed.push({ name: file.name, type: file.type, data: ev.target.result }); res(); };
+                    reader.readAsDataURL(file);
+                });
             }
         }
-
-        // Add processed images immediately
-        if (processedFiles.length > 0) {
-            setFiles(prev => [...prev, ...processedFiles]);
-        }
+        if (processed.length) setFiles(prev => [...prev, ...processed]);
     };
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
         if (!formData.title || !formData.desc || !formData.deadline) {
             setError('Please fill in all required fields');
             return;
         }
-
         const tier = REWARD_TIERS.find(t => t.id === formData.rewardId);
         setIsSubmitting(true);
-
         try {
-            await postTask({
-                ...formData,
-                coins: tier.coins,
-                files
-            });
+            await postTask({ ...formData, coins: tier.coins, files });
             navigate('/explore');
         } catch (err) {
-            setError(err.message || "Failed to post task");
+            setError(err.message || 'Failed to post task');
             setIsSubmitting(false);
         }
     };
 
     const selectedTier = REWARD_TIERS.find(t => t.id === formData.rewardId);
+    const wordCount = formData.title.trim().split(/\s+/).filter(Boolean).length;
+    const today = new Date().toISOString().split('T')[0];
+    const canProceed = () => {
+        if (step === 0) return formData.title.trim().length > 0;
+        if (step === 2) return formData.desc.trim().length > 0 && formData.deadline;
+        return true;
+    };
+
+    const cardStyle = {
+        background: 'rgba(255,255,255,0.025)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: '20px',
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black transition-colors duration-300 pb-20">
-            {/* Header Banner */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-gradient-to-r from-red-700 via-rose-600 to-orange-600 pt-32 pb-24 relative overflow-hidden"
-            >
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                <div className="absolute inset-0 bg-black/10"></div>
-                <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 100, delay: 0.2 }}
-                    className="absolute top-10 right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"
+        <div className="min-h-screen pb-24" style={{ background: '#050505' }}>
+
+            {/* ── Page Header ── */}
+            <div className="relative pt-32 pb-16 px-6 overflow-hidden">
+                {/* Subtle glow */}
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(239,68,68,0.05) 0%, transparent 100%)' }}
                 />
-                <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 100, delay: 0.3 }}
-                    className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full blur-3xl"
+                {/* Top rule */}
+                <div
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[480px] h-px"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }}
                 />
 
-                {/* Doodle Pattern Overlay */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {[
-                        { Icon: Code, top: '10%', left: '10%' },
-                        { Icon: Sparkles, top: '20%', left: '80%' },
-                        { Icon: Zap, top: '60%', left: '15%' },
-                        { Icon: Coffee, top: '80%', left: '70%' },
-                        { Icon: Music, top: '15%', left: '40%' },
-                        { Icon: Sun, top: '75%', left: '30%' },
-                        { Icon: Cloud, top: '30%', left: '60%' },
-                        { Icon: Flag, top: '50%', left: '90%' },
-                        { Icon: Bookmark, top: '40%', left: '5%' },
-                        { Icon: Compass, top: '85%', left: '50%' },
-                        { Icon: Rocket, top: '5%', left: '90%' },
-                        { Icon: Smile, top: '90%', left: '10%' },
-                        { Icon: Cpu, top: '45%', left: '75%' },
-                        { Icon: Globe, top: '25%', left: '25%' },
-                        { Icon: Layers, top: '55%', left: '40%' },
-                    ].map(({ Icon, top, left }, i) => (
-                        <motion.div
-                            key={i}
-                            className="absolute text-white/40"
-                            style={{ top, left }}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{
-                                opacity: [0.4, 0.8, 0.4],
-                                scale: [1, 1.2, 1],
-                                rotate: [0, 10, -10, 0]
-                            }}
-                            transition={{
-                                duration: 4 + Math.random() * 3,
-                                repeat: Infinity,
-                                delay: Math.random() * 2
-                            }}
-                        >
-                            <Icon className="w-12 h-12 md:w-16 md:h-16" strokeWidth={1.5} />
-                        </motion.div>
-                    ))}
+                <div className="max-w-2xl mx-auto text-center">
+                    <p className="text-[10px] font-semibold tracking-[0.25em] uppercase mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                        New Task
+                    </p>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
+                        Post a Task
+                    </h1>
+                    <p className="text-sm font-light mb-10" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        Lock coins in escrow and get quality work from skilled freelancers.
+                    </p>
+                    <StepIndicator step={step} />
                 </div>
+            </div>
 
-                <div className="container mx-auto px-6 relative z-10 text-center">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-red-600 shadow-lg mb-8"
-                    >
-                        <Sparkles className="w-4 h-4" />
-                        <span className="text-sm font-bold">Create New Task</span>
-                    </motion.div>
-                    <motion.h1
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-5xl md:text-6xl font-black text-white drop-shadow-lg mb-6"
-                    >
-                        Post Your Task
-                    </motion.h1>
-                    <motion.p
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="text-white/95 drop-shadow-md text-lg font-medium max-w-2xl mx-auto"
-                    >
-                        Lock coins in escrow and get quality work delivered
-                    </motion.p>
-                </div>
-            </motion.div>
-
-            <div className="container mx-auto px-6 -mt-12 relative z-10 max-w-4xl">
-
+            {/* ── Form Card ── */}
+            <div className="container mx-auto px-6 max-w-2xl">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white dark:bg-[#111] p-8 rounded-3xl border border-gray-200 dark:border-white/10 shadow-2xl"
+                    transition={{ delay: 0.1 }}
+                    style={cardStyle}
                 >
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="mb-6 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400"
-                        >
-                            <AlertCircle className="w-5 h-5" />
-                            {error}
-                        </motion.div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-8">
-                        {/* Task Title */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            <div className="flex justify-between items-center mb-3">
-                                <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                    Task Title <span className="text-red-500">*</span>
-                                </label>
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {formData.title.trim().split(/\s+/).filter(Boolean).length}/15 words
-                                </span>
-                            </div>
-                            <input
-                                type="text"
-                                value={formData.title}
-                                onChange={e => {
-                                    const val = e.target.value;
-                                    const words = val.trim().split(/\s+/).filter(Boolean);
-                                    if (words.length <= 15) {
-                                        setFormData({ ...formData, title: val });
-                                    }
-                                }}
-                                className="w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-400 outline-none transition-all text-lg font-medium"
-                                placeholder="e.g., Design a modern landing page"
-                            />
-                        </motion.div>
-
-                        {/* Category Selection */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.4 }}
-                            className="grid md:grid-cols-2 gap-6"
-                        >
-                            <div>
-                                <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
-                                    <Tag className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                    Category <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={formData.category}
-                                    onChange={e => setFormData({ ...formData, category: e.target.value, sub: SUBCATEGORIES[e.target.value][0] })}
-                                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-400 outline-none transition-all font-medium"
-                                >
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-bold text-gray-900 dark:text-white mb-3 block">
-                                    Subcategory <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={formData.sub}
-                                    onChange={e => setFormData({ ...formData, sub: e.target.value })}
-                                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-400 outline-none transition-all font-medium"
-                                >
-                                    {SUBCATEGORIES[formData.category]?.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        </motion.div>
-
-                        {/* Reward Tiers */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.5 }}
-                        >
-                            <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-                                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                Reward Tier <span className="text-red-500">*</span>
-                            </label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {REWARD_TIERS.map(tier => (
-                                    <motion.button
-                                        key={tier.id}
-                                        type="button"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => setFormData({ ...formData, rewardId: tier.id })}
-                                        className={`p-4 rounded-xl border-2 transition-all ${formData.rewardId === tier.id
-                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
-                                            : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:border-gray-300 dark:hover:border-white/20'
-                                            }`}
-                                    >
-                                        <div className={`text-xs font-bold mb-1 ${formData.rewardId === tier.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                            {tier.label}
-                                        </div>
-                                        <div className={`text-2xl font-black ${formData.rewardId === tier.id ? 'bg-gradient-to-r ' + tier.color + ' bg-clip-text text-transparent' : 'text-gray-900 dark:text-white'}`}>
-                                            {tier.coins}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">coins</div>
-                                    </motion.button>
-                                ))}
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">💡 Funds are locked in escrow until task completion</p>
-                        </motion.div>
-
-                        {/* Description */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.6 }}
-                        >
-                            <label className="text-sm font-bold text-gray-900 dark:text-white mb-3 block">
-                                Description <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                                value={formData.desc}
-                                onChange={e => setFormData({ ...formData, desc: e.target.value })}
-                                className="w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-400 outline-none h-40 transition-all resize-none"
-                                placeholder="Describe the task requirements, deliverables, and acceptance criteria in detail..."
-                            />
-                        </motion.div>
-
-                        {/* Deadline & Attachments */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.7 }}
-                            className="grid md:grid-cols-2 gap-6"
-                        >
-                            <div>
-                                <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
-                                    <CalendarIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                    Deadline <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    value={formData.deadline}
-                                    onChange={e => setFormData({ ...formData, deadline: e.target.value })}
-                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-400 outline-none cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:dark:filter [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-bold text-gray-900 dark:text-white mb-3 block">Attachments</label>
-                                <input
-                                    type="file"
-                                    multiple
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    id="file-upload"
-                                />
-                                <label htmlFor="file-upload" className="flex items-center justify-center gap-2 w-full bg-gray-50 dark:bg-white/5 border-2 border-gray-200 dark:border-white/10 border-dashed rounded-xl p-4 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer transition-all group">
-                                    <Upload className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                    <span className="font-medium">Upload Files</span>
-                                </label>
-                            </div>
-                        </motion.div>
-
-                        {/* File preview section remains the same, assuming it was correct in previous context */}
-                        {files.length > 0 && (
+                    {/* Error banner */}
+                    <AnimatePresence>
+                        {error && (
                             <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex gap-3 flex-wrap p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10"
+                                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                className="flex items-center gap-3 px-6 py-3.5 text-sm"
+                                style={{ background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.15)', color: 'rgba(252,165,165,0.8)', borderRadius: '20px 20px 0 0' }}
                             >
-                                {files.map((f, i) => (
-                                    <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="relative group"
-                                    >
-                                        {f.type.startsWith('image/') ? (
-                                            <img src={f.data} alt={f.name} className="h-20 w-20 object-cover rounded-xl border-2 border-gray-200 dark:border-white/10" />
-                                        ) : (
-                                            <div className="h-20 w-20 flex items-center justify-center bg-white dark:bg-white/5 rounded-xl border-2 border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 p-2 text-center overflow-hidden font-medium">{f.name}</div>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
-                                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </motion.div>
-                                ))}
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                                <button onClick={() => setError('')} className="ml-auto opacity-50 hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
                             </motion.div>
                         )}
+                    </AnimatePresence>
 
-                        {/* Submit Button */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.8 }}
-                            className="pt-4"
-                        >
-                            <motion.button
-                                type="submit"
-                                disabled={isSubmitting}
-                                whileHover={!isSubmitting ? { scale: 1.02 } : {}}
-                                whileTap={!isSubmitting ? { scale: 0.98 } : {}}
-                                className={`w-full py-5 bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 text-white font-black text-lg rounded-xl shadow-lg hover:shadow-2xl transition-all flex items-center justify-center gap-3 ${isSubmitting ? 'opacity-70 cursor-not-allowed grayscale' : ''}`}
+                    <form onSubmit={handleSubmit}>
+                        <AnimatePresence mode="wait">
+
+                            {/* ══ STEP 0: Basics ══ */}
+                            {step === 0 && (
+                                <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-6">
+                                    <div className="mb-2">
+                                        <h2 className="text-lg font-black text-white tracking-tight">Task Basics</h2>
+                                        <p className="text-xs mt-1 font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Give your task a clear title and category</p>
+                                    </div>
+
+                                    <Field label="Task Title" required hint={`${wordCount}/15 words`}>
+                                        <input
+                                            type="text"
+                                            value={formData.title}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (val.trim().split(/\s+/).filter(Boolean).length <= 15)
+                                                    setFormData({ ...formData, title: val });
+                                            }}
+                                            className={inputCls}
+                                            placeholder="e.g., Design a modern landing page for my SaaS"
+                                        />
+                                    </Field>
+
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <Field label="Category" required>
+                                            <select
+                                                value={formData.category}
+                                                onChange={e => setFormData({ ...formData, category: e.target.value, sub: SUBCATEGORIES[e.target.value][0] })}
+                                                className={inputCls}
+                                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px 16px', color: 'white', outline: 'none', width: '100%', fontSize: '14px' }}
+                                            >
+                                                {CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#111' }}>{c}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="Subcategory" required>
+                                            <select
+                                                value={formData.sub}
+                                                onChange={e => setFormData({ ...formData, sub: e.target.value })}
+                                                className={inputCls}
+                                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px 16px', color: 'white', outline: 'none', width: '100%', fontSize: '14px' }}
+                                            >
+                                                {SUBCATEGORIES[formData.category]?.map(s => <option key={s} value={s} style={{ background: '#111' }}>{s}</option>)}
+                                            </select>
+                                        </Field>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* ══ STEP 1: Reward ══ */}
+                            {step === 1 && (
+                                <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-6">
+                                    <div className="mb-2">
+                                        <h2 className="text-lg font-black text-white tracking-tight">Set Reward</h2>
+                                        <p className="text-xs mt-1 font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Choose how much to pay for this task</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {REWARD_TIERS.map(tier => {
+                                            const isSelected = formData.rewardId === tier.id;
+                                            return (
+                                                <motion.button
+                                                    key={tier.id}
+                                                    type="button"
+                                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                                    onClick={() => setFormData({ ...formData, rewardId: tier.id })}
+                                                    className="relative p-5 rounded-xl text-left transition-all"
+                                                    style={{
+                                                        background: isSelected ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)',
+                                                        border: isSelected ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                                                    }}
+                                                >
+                                                    {isSelected && (
+                                                        <div className="absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.2)' }}>
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                                        </div>
+                                                    )}
+                                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: isSelected ? 'rgba(239,68,68,0.7)' : 'rgba(255,255,255,0.50)' }}>
+                                                        {tier.label}
+                                                    </div>
+                                                    <div className="text-3xl font-black text-white mb-0.5">{tier.coins}</div>
+                                                    <div className="text-[10px] mb-3" style={{ color: 'rgba(255,255,255,0.50)' }}>coins</div>
+                                                    <div className="text-[10px] font-semibold" style={{ color: isSelected ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.40)' }}>
+                                                        +{tier.xp} XP · {tier.desc}
+                                                    </div>
+                                                </motion.button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Escrow notice */}
+                                    <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }} />
+                                        <p className="text-xs font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                            <span className="text-white/50 font-semibold">{selectedTier?.coins} coins</span> will be locked from your balance when you post this task. Released to the freelancer only after you mark it complete.
+                                        </p>
+                                    </div>
+
+                                    {/* Balance */}
+                                    <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                            <Coins className="w-3.5 h-3.5" /> Your balance
+                                        </div>
+                                        <div className={`font-black text-base ${(currentUser?.coins || 0) >= (selectedTier?.coins || 0) ? 'text-white' : 'text-red-400'}`}>
+                                            {currentUser?.coins || 0} coins
+                                        </div>
+                                    </div>
+                                    {(currentUser?.coins || 0) < (selectedTier?.coins || 0) && (
+                                        <p className="text-xs text-red-400/70 font-light -mt-3">Insufficient balance for this tier</p>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            {/* ══ STEP 2: Details ══ */}
+                            {step === 2 && (
+                                <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-6">
+                                    <div className="mb-2">
+                                        <h2 className="text-lg font-black text-white tracking-tight">Task Details</h2>
+                                        <p className="text-xs mt-1 font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Describe what you need and set a deadline</p>
+                                    </div>
+
+                                    <Field label="Description" required hint={`${formData.desc.length} chars`}>
+                                        <textarea
+                                            value={formData.desc}
+                                            onChange={e => setFormData({ ...formData, desc: e.target.value })}
+                                            className={inputCls + ' h-44 resize-none leading-relaxed'}
+                                            placeholder="Describe the task requirements, deliverables, and acceptance criteria in detail..."
+                                        />
+                                    </Field>
+
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <Field label="Deadline" required>
+                                            <input
+                                                type="date"
+                                                value={formData.deadline}
+                                                min={today}
+                                                onChange={e => setFormData({ ...formData, deadline: e.target.value })}
+                                                onClick={e => e.target.showPicker?.()}
+                                                className={inputCls + ' cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-20'}
+                                            />
+                                        </Field>
+
+                                        <Field label="Attachments" hint="Max 5 files">
+                                            <input type="file" multiple onChange={handleFileChange} className="hidden" id="file-upload" />
+                                            <label
+                                                htmlFor="file-upload"
+                                                className="flex items-center justify-center gap-2 w-full cursor-pointer transition-all text-sm font-light"
+                                                style={{
+                                                    background: 'rgba(255,255,255,0.02)',
+                                                    border: '1px dashed rgba(255,255,255,0.08)',
+                                                    borderRadius: '12px',
+                                                    padding: '14px 16px',
+                                                    color: 'rgba(255,255,255,0.50)',
+                                                }}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; e.currentTarget.style.color = 'rgba(239,68,68,0.6)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.50)'; }}
+                                            >
+                                                <Upload className="w-4 h-4" /> Upload Files
+                                            </label>
+                                        </Field>
+                                    </div>
+
+                                    <AnimatePresence>
+                                        {files.length > 0 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                                className="flex gap-3 flex-wrap p-4 rounded-xl"
+                                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                                            >
+                                                {files.map((f, i) => (
+                                                    <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative group">
+                                                        {f.type.startsWith('image/') ? (
+                                                            <img src={f.data} alt={f.name} className="h-16 w-16 object-cover rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.08)' }} />
+                                                        ) : (
+                                                            <div className="h-16 w-16 flex flex-col items-center justify-center rounded-lg text-[9px] p-2 text-center overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.60)' }}>
+                                                                <FileText className="w-4 h-4 mb-1 opacity-50" />
+                                                                <span className="line-clamp-2">{f.name}</span>
+                                                            </div>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
+                                                            className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <X className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    </motion.div>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* ══ STEP 3: Review ══ */}
+                            {step === 3 && (
+                                <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-5">
+                                    <div className="mb-2">
+                                        <h2 className="text-lg font-black text-white tracking-tight">Review & Publish</h2>
+                                        <p className="text-xs mt-1 font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Double-check everything before posting</p>
+                                    </div>
+
+                                    {/* Summary */}
+                                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+                                        <div className="p-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(255,255,255,0.50)' }}>Task Title</p>
+                                            <p className="font-black text-white text-base">{formData.title}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <div className="p-4" style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.50)' }}>Category</p>
+                                                <p className="font-semibold text-white text-sm">{formData.category}</p>
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{formData.sub}</p>
+                                            </div>
+                                            <div className="p-4">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.50)' }}>Deadline</p>
+                                                <p className="font-semibold text-white text-sm">
+                                                    {formData.deadline ? new Date(formData.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="p-5">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.50)' }}>Description</p>
+                                            <p className="text-sm font-light leading-relaxed line-clamp-3" style={{ color: 'rgba(255,255,255,0.4)' }}>{formData.desc}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Reward summary */}
+                                    <div className="flex items-center justify-between p-5 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(239,68,68,0.6)' }}>{selectedTier?.label} Tier</p>
+                                            <p className="text-sm font-light" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                                Freelancer earns <span className="text-red-400 font-bold">{selectedTier?.coins} coins</span> + <span className="text-indigo-400 font-bold">+{selectedTier?.xp} XP</span>
+                                            </p>
+                                        </div>
+                                        <div className="text-4xl font-black text-white">{selectedTier?.coins}</div>
+                                    </div>
+
+                                    {files.length > 0 && (
+                                        <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                                            <FileText className="w-3.5 h-3.5" />
+                                            {files.length} attachment{files.length > 1 ? 's' : ''} included
+                                        </div>
+                                    )}
+
+                                    {/* Submit */}
+                                    <motion.button
+                                        type="submit"
+                                        disabled={isSubmitting || (currentUser?.coins || 0) < (selectedTier?.coins || 0)}
+                                        whileHover={!isSubmitting ? { scale: 1.02 } : {}}
+                                        whileTap={!isSubmitting ? { scale: 0.98 } : {}}
+                                        className="w-full py-4 rounded-full text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all"
+                                        style={{
+                                            background: 'linear-gradient(135deg,#dc2626,#ef4444)',
+                                            boxShadow: '0 0 0 1px rgba(239,68,68,0.3), 0 12px 40px rgba(239,68,68,0.15)',
+                                            opacity: isSubmitting || (currentUser?.coins || 0) < (selectedTier?.coins || 0) ? 0.5 : 1,
+                                            cursor: isSubmitting || (currentUser?.coins || 0) < (selectedTier?.coins || 0) ? 'not-allowed' : 'pointer',
+                                        }}
+                                    >
+                                        {isSubmitting ? (
+                                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Publishing...</>
+                                        ) : (
+                                            <>Publish Task <ArrowRight className="w-4 h-4" /></>
+                                        )}
+                                    </motion.button>
+                                    <p className="text-center text-[11px]" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                                        {selectedTier?.coins} coins will be deducted and held in escrow
+                                    </p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* ── Navigation footer ── */}
+                        {step < 3 && (
+                            <div
+                                className="flex items-center justify-between px-8 py-5"
+                                style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
                             >
-                                {isSubmitting ? (
-                                    <>
-                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Publishing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="w-6 h-6" />
-                                        Publish Task
-                                    </>
-                                )}
-                            </motion.button>
-                            <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">Coins will be deducted immediately and held in escrow</p>
-                        </motion.div>
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(s => Math.max(0, s - 1))}
+                                    disabled={step === 0}
+                                    className="text-sm font-medium transition-colors disabled:opacity-20"
+                                    style={{ color: 'rgba(255,255,255,0.60)' }}
+                                    onMouseEnter={e => { if (step > 0) e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.60)'; }}
+                                >
+                                    ← Back
+                                </button>
+
+                                {/* Progress dots */}
+                                <div className="flex items-center gap-1.5">
+                                    {STEPS.map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className="rounded-full transition-all"
+                                            style={{
+                                                width: i === step ? '20px' : '6px',
+                                                height: '4px',
+                                                background: i === step
+                                                    ? 'linear-gradient(90deg,#dc2626,#ef4444)'
+                                                    : i < step
+                                                        ? 'rgba(239,68,68,0.4)'
+                                                        : 'rgba(255,255,255,0.08)',
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setError(''); if (canProceed()) setStep(s => s + 1); else setError('Please complete all required fields'); }}
+                                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-all"
+                                    style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', boxShadow: '0 0 0 1px rgba(239,68,68,0.25)' }}
+                                >
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </motion.div>
             </div>

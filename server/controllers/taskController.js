@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const { calculateXP } = require('../utils/gamification');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 
 // @desc    Create a new task
@@ -263,9 +264,7 @@ const completeTask = async (req, res) => {
 
             // PROPORTIONAL XP LOGIC:
             // 10 XP base + (Coins / 10)
-            // Example: 100 coin task -> 10 + 10 = 20 XP
-            // Example: 1000 coin task -> 10 + 100 = 110 XP
-            const xpEarned = 10 + Math.floor(task.coins / 10);
+            const xpEarned = calculateXP(task.coins);
 
             fulfiller.xp = (fulfiller.xp || 0) + xpEarned;
 
@@ -278,6 +277,15 @@ const completeTask = async (req, res) => {
             fulfiller.essences[randomEssence] += 1;
 
             await fulfiller.save();
+
+            // Increment season stats
+            await User.findByIdAndUpdate(fulfiller._id, {
+                $inc: {
+                    seasonXP: xpEarned,
+                    seasonCoins: task.coins,
+                    seasonTasksCompleted: 1
+                }
+            });
 
             // Create Transaction for fulfiller (receiving payment)
             await Transaction.create({
@@ -310,6 +318,9 @@ const completeTask = async (req, res) => {
             // Give XP to task creator for successful task posting
             creator.xp = (creator.xp || 0) + 10;
             await creator.save();
+
+            // Increment Duel Progress for Task Sprint
+            await incrementDuelProgress(fulfiller._id, 'task-sprint', 1);
         }
 
         // Notify task creator that their task is complete
@@ -619,11 +630,12 @@ const deleteTask = async (req, res) => {
 
         await Task.deleteOne({ _id: req.params.id });
         res.json({ message: 'Task removed' });
-        res.json({ message: 'Task removed' });
     } else {
         res.status(404).json({ message: 'Task not found' });
     }
 };
+
+const { incrementDuelProgress } = require('./duelController');
 
 module.exports = {
     createTask,

@@ -2,6 +2,8 @@ const Duel = require('../models/Duel');
 const User = require('../models/User');
 const { createActivity } = require('./activityController');
 
+const { getIO } = require('../utils/socketUtils');
+
 // Create a new duel request
 exports.createDuel = async (req, res) => {
     try {
@@ -72,6 +74,17 @@ exports.createDuel = async (req, res) => {
             comment: `${req.user.name} challenged you to a ${type.replace('-', ' ')}!`,
             duel: duel._id
         });
+
+        // Emit socket event to opponent
+        try {
+            const io = getIO();
+            io.to(opponentId.toString()).emit('duel_request', {
+                message: `${req.user.name} challenged you!`,
+                duel
+            });
+        } catch (error) {
+            console.error('Socket emit error:', error);
+        }
 
         const populatedDuel = await Duel.findById(duel._id)
             .populate('challenger', 'name avatar')
@@ -149,6 +162,19 @@ exports.respondToDuel = async (req, res) => {
                 comment: `${req.user.name} accepted your challenge!`,
                 duel: duel._id
             });
+
+            // Emit socket event to challenger
+            try {
+                const io = getIO();
+                io.to(duel.challenger.toString()).emit('duel_accepted', {
+                    message: `${req.user.name} accepted your challenge!`,
+                    duel
+                });
+                io.emit('duel_update', duel._id); // Public update for live feed
+            } catch (error) {
+                console.error('Socket emit error:', error);
+            }
+
         } else if (action === 'reject') {
             duel.status = 'rejected';
             await duel.save();
@@ -167,7 +193,7 @@ exports.respondToDuel = async (req, res) => {
     }
 };
 
-// Update progress (simplified for now)
+// Update progress (from client)
 exports.updateProgress = async (req, res) => {
     try {
         const { id } = req.params;
@@ -179,44 +205,11 @@ exports.updateProgress = async (req, res) => {
             return res.status(404).json({ message: 'Duel not found' });
         }
 
-        if (duel.status !== 'active') {
-            return res.status(400).json({ message: 'Duel is not active' });
-        }
+        // Validate progress updates
+        // For task sprint, manual updates shouldn't be allowed? Or maybe for now we allow it.
+        // Let's rely on internal checks, but this endpoint is useful for study/habit.
 
-        let isWinner = false;
-
-        if (duel.challenger.toString() === userId) {
-            duel.challengerProgress = progress;
-            if (duel.challengerProgress >= duel.target) {
-                duel.status = 'completed';
-                duel.winner = userId;
-                duel.endedAt = new Date();
-                isWinner = true;
-            }
-        } else if (duel.opponent.toString() === userId) {
-            duel.opponentProgress = progress;
-            if (duel.opponentProgress >= duel.target) {
-                duel.status = 'completed';
-                duel.winner = userId;
-                duel.endedAt = new Date();
-                isWinner = true;
-            }
-        } else {
-            return res.status(403).json({ message: 'Not authorized' });
-        }
-
-        await duel.save();
-
-        if (isWinner) {
-            // Notify loser
-            const loserId = duel.challenger.toString() === userId ? duel.opponent : duel.challenger;
-            await createActivity(loserId, userId, 'duel_lost', {
-                comment: `${req.user.name} won the ${duel.type.replace('-', ' ')}!`,
-                duel: duel._id
-            });
-
-            // Notify winner (self) - optional, maybe just UI toast
-        }
+        await exports.handleDuelProgress(duel, userId, progress);
 
         const updatedDuel = await Duel.findById(id)
             .populate('challenger', 'name avatar')
@@ -226,5 +219,87 @@ exports.updateProgress = async (req, res) => {
     } catch (error) {
         console.error('Error updating progress:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Internal function to handle progress logic
+exports.handleDuelProgress = async (duel, userId, newProgress) => {
+    if (duel.status !== 'active') return;
+
+    let isWinner = false;
+    let oldProgress = 0;
+
+    if (duel.challenger.toString() === userId.toString()) {
+        oldProgress = duel.challengerProgress;
+        duel.challengerProgress = newProgress;
+        if (duel.challengerProgress >= duel.target) isWinner = true;
+    } else if (duel.opponent.toString() === userId.toString()) {
+        oldProgress = duel.opponentProgress;
+        duel.opponentProgress = newProgress;
+        if (duel.opponentProgress >= duel.target) isWinner = true;
+    } else {
+        return; // Not a participant
+    }
+
+    if (isWinner) {
+        duel.status = 'completed';
+        duel.winner = userId;
+        duel.endedAt = new Date();
+    }
+
+    await duel.save();
+
+    // Emit updates
+    try {
+        const io = getIO();
+        const opponentId = duel.challenger.toString() === userId.toString() ? duel.opponent : duel.challenger;
+
+        io.to(opponentId.toString()).emit('duel_progress', {
+            duelId: duel._id,
+            userId,
+            progress: newProgress
+        });
+
+        io.emit('duel_update', duel._id); // For live feed
+
+        if (isWinner) {
+            const loserId = duel.challenger.toString() === userId.toString() ? duel.opponent : duel.challenger;
+            await createActivity(loserId, userId, 'duel_lost', {
+                comment: `Opponent won the ${duel.type.replace('-', ' ')}!`,
+                duel: duel._id
+            });
+
+            io.to(loserId.toString()).emit('duel_lost', {
+                duelId: duel._id,
+                winnerId: userId
+            });
+        }
+    } catch (error) {
+        console.error('Socket emit error:', error);
+    }
+};
+
+// Helper for other controllers (e.g., Task Controller) to increment progress
+exports.incrementDuelProgress = async (userId, type, amount = 1) => {
+    try {
+        // Find active duels for this user of specific type
+        const duels = await Duel.find({
+            $or: [{ challenger: userId }, { opponent: userId }],
+            status: 'active',
+            type: type
+        });
+
+        for (const duel of duels) {
+            let currentProgress = 0;
+            if (duel.challenger.toString() === userId.toString()) {
+                currentProgress = duel.challengerProgress;
+            } else {
+                currentProgress = duel.opponentProgress;
+            }
+
+            await exports.handleDuelProgress(duel, userId, currentProgress + amount);
+        }
+    } catch (error) {
+        console.error('Error auto-incrementing duel progress:', error);
     }
 };

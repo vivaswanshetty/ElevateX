@@ -1,59 +1,151 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Trophy, Target, Flame, Clock, CheckCircle, Users, Zap, Award, Crown, TrendingUp, ArrowRight, Play, UserPlus, Search, X, Code, Sparkles, Coffee, Music, Sun, Cloud, Flag, Bookmark, Compass, Rocket, Smile, Cpu, Globe, Layers } from 'lucide-react';
+import {
+    Swords, Trophy, Flame, Clock, CheckCircle, Users, Zap, Crown,
+    ArrowRight, Play, UserPlus, Search, X, Shield, Target
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import AuthModal from '../components/AuthModal';
 import api from '../api/axios';
 import Toast from '../components/Toast';
+import { io } from 'socket.io-client';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CHALLENGE_TYPES = [
     {
-        id: 'task-sprint',
-        name: 'Task Sprint',
-        description: 'First to complete 5 tasks wins',
-        icon: CheckCircle,
-        color: 'from-blue-600 to-cyan-600',
-        target: 5,
-        unit: 'tasks',
-        duration: 'Unlimited'
+        id: 'task-sprint', name: 'Task Sprint', description: 'First to complete 5 tasks wins',
+        icon: CheckCircle, accent: '#3b82f6',
+        target: 5, unit: 'tasks', duration: 'Unlimited'
     },
     {
-        id: 'habit-streak',
-        name: 'Habit Streak',
-        description: 'Longest consecutive daily streak',
-        icon: Flame,
-        color: 'from-orange-600 to-red-600',
-        target: 7,
-        unit: 'days',
-        duration: '7 days'
+        id: 'habit-streak', name: 'Habit Streak', description: 'Longest consecutive daily streak',
+        icon: Flame, accent: '#fb923c',
+        target: 7, unit: 'days', duration: '7 days'
     },
     {
-        id: 'study-duel',
-        name: 'Study Duel',
-        description: '1-hour focused study session',
-        icon: Clock,
-        color: 'from-purple-600 to-pink-600',
-        target: 60,
-        unit: 'minutes',
-        duration: '1 hour'
-    }
+        id: 'study-duel', name: 'Study Duel', description: '1-hour focused study session',
+        icon: Clock, accent: '#a855f7',
+        target: 60, unit: 'minutes', duration: '1 hour'
+    },
 ];
 
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+const ProgressBar = ({ label, avatar, progress, target, accent, isYou }) => {
+    const pct = Math.min((progress / target) * 100, 100);
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                    <div className={`relative ${isYou ? 'ring-1 ring-offset-1 ring-offset-[#0d0d0d]' : ''} rounded-full`}
+                        style={{ ringColor: isYou ? accent : undefined }}>
+                        <img src={avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(label)}`}
+                            alt={label} className="w-7 h-7 rounded-full object-cover" />
+                    </div>
+                    <span className="font-medium text-sm" style={{ color: isYou ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)' }}>
+                        {label} {isYou && <span className="text-[10px] opacity-50">(you)</span>}
+                    </span>
+                </div>
+                <span className="text-sm font-black text-white">{progress}<span className="text-white/20 font-light">/{target}</span></span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <motion.div
+                    initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    className="h-full rounded-full"
+                    style={{ background: isYou ? accent : 'rgba(255,255,255,0.40)' }}
+                />
+            </div>
+        </div>
+    );
+};
+
+// ─── Duel Card ────────────────────────────────────────────────────────────────
+const DuelCard = ({ duel, currentUser, onRespond }) => {
+    const ct = CHALLENGE_TYPES.find(c => c.id === duel.type) || CHALLENGE_TYPES[0];
+    const isChallenger = duel.challenger._id === currentUser._id;
+    const isShadow = duel.isShadow;
+    const opponent = isShadow ? { name: 'Your Shadow', avatar: null }
+        : (isChallenger ? duel.opponent : duel.challenger);
+    const myProgress = isChallenger ? duel.challengerProgress : duel.opponentProgress;
+    const oppProgress = isShadow ? (duel.shadowData?.bestProgress || 0)
+        : (isChallenger ? duel.opponentProgress : duel.challengerProgress);
+
+    const statusColors = {
+        active: { bg: 'rgba(34,197,94,0.08)', text: 'rgba(134,239,172,0.7)', border: 'rgba(34,197,94,0.15)', label: 'Active' },
+        pending: { bg: 'rgba(234,179,8,0.08)', text: 'rgba(253,224,71,0.7)', border: 'rgba(234,179,8,0.15)', label: 'Pending' },
+        completed: { bg: 'rgba(255,255,255,0.04)', text: 'rgba(255,255,255,0.50)', border: 'rgba(255,255,255,0.06)', label: 'Ended' },
+    };
+    const sc = statusColors[duel.status] || statusColors.completed;
+
+    return (
+        <div
+            className="rounded-2xl overflow-hidden transition-all"
+            style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: isShadow ? '1px solid rgba(168,85,247,0.2)' : '1px solid rgba(255,255,255,0.06)',
+            }}
+        >
+            {/* Top accent line */}
+            <div className="h-px w-full" style={{ background: ct.accent + '40' }} />
+            <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: ct.accent + '15', border: `1px solid ${ct.accent}25` }}>
+                            {isShadow ? <Shield className="w-4 h-4" style={{ color: '#a855f7' }} /> : <ct.icon className="w-4 h-4" style={{ color: ct.accent }} />}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-white text-sm">{isShadow ? `Shadow: ${ct.name}` : ct.name}</h3>
+                            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>{isShadow ? 'Racing against past best' : `vs ${opponent.name}`}</p>
+                        </div>
+                    </div>
+                    <span
+                        className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}
+                    >
+                        {sc.label}
+                    </span>
+                </div>
+
+                {duel.status === 'pending' && !isChallenger ? (
+                    <div className="flex gap-2 mt-2">
+                        <button onClick={() => onRespond(duel._id, 'accept')}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                            style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.2)', color: 'rgba(134,239,172,0.9)' }}>
+                            Accept
+                        </button>
+                        <button onClick={() => onRespond(duel._id, 'reject')}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.60)' }}>
+                            Decline
+                        </button>
+                    </div>
+                ) : duel.status === 'active' ? (
+                    <div className="space-y-3">
+                        <ProgressBar label="You" avatar={currentUser.avatar} progress={myProgress} target={duel.target} accent={ct.accent} isYou />
+                        <ProgressBar label={opponent.name} avatar={opponent.avatar} progress={oppProgress} target={duel.target} accent={ct.accent} isYou={false} />
+                    </div>
+                ) : (
+                    <p className="text-center text-sm py-2" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                        {duel.status === 'pending' ? 'Waiting for opponent...' : 'Duel ended'}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const ProductivityDuel = () => {
     const { currentUser } = useAuth();
     const { tasks } = useData();
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [selectedChallenge, setSelectedChallenge] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-
-    // Data states
     const [liveDuels, setLiveDuels] = useState([]);
     const [myDuels, setMyDuels] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
-
-    // Search states
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [selectedOpponent, setSelectedOpponent] = useState(null);
@@ -64,125 +156,96 @@ const ProductivityDuel = () => {
 
     useEffect(() => {
         fetchDuels();
+        if (!currentUser) return;
+        const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5001', { withCredentials: true });
+        socket.on('connect', () => socket.emit('join_user_room', currentUser._id));
+        socket.on('duel_request', (data) => { setToast({ type: 'info', message: data.message }); setMyDuels(p => [data.duel, ...p]); });
+        socket.on('duel_accepted', (data) => { setToast({ type: 'success', message: data.message }); setMyDuels(p => p.map(d => d._id === data.duel._id ? data.duel : d)); });
+        socket.on('duel_progress', (data) => {
+            setMyDuels(p => p.map(d => {
+                if (d._id !== data.duelId) return d;
+                return d.challenger._id === data.userId
+                    ? { ...d, challengerProgress: data.progress }
+                    : { ...d, opponentProgress: data.progress };
+            }));
+        });
+        socket.on('duel_lost', () => { setToast({ type: 'info', message: 'Your opponent reached the target first!' }); setMyDuels(p => p.map(d => d._id === data.duelId ? { ...d, status: 'completed' } : d)); });
+        socket.on('duel_update', () => api.get('/duels/live').then(r => setLiveDuels(r.data)));
+        return () => socket.disconnect();
     }, [currentUser]);
 
     const fetchDuels = async () => {
         try {
             const liveRes = await api.get('/duels/live');
             setLiveDuels(liveRes.data);
-
-            if (currentUser) {
-                const myRes = await api.get('/duels/my');
-                setMyDuels(myRes.data);
-            }
-        } catch (error) {
-            console.error('Error fetching duels:', error);
-        } finally {
-            setLoading(false);
-        }
+            if (currentUser) { const myRes = await api.get('/duels/my'); setMyDuels(myRes.data); }
+        } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
-    const handleStartChallenge = (challengeType) => {
-        if (!currentUser) {
-            setShowAuthModal(true);
-            return;
-        }
-        setSelectedChallenge(challengeType);
-        setShowCreateModal(true);
-        setSearchQuery('');
-        setSearchResults([]);
-        setSelectedOpponent(null);
-        setChallengeMessage('');
-        setIsShadowMode(false);
+    const handleStartChallenge = (ct) => {
+        if (!currentUser) { setShowAuthModal(true); return; }
+        setSelectedChallenge(ct); setShowCreateModal(true);
+        setSearchQuery(''); setSearchResults([]); setSelectedOpponent(null);
+        setChallengeMessage(''); setIsShadowMode(false);
     };
 
-    const handleSearchUser = async (query) => {
-        setSearchQuery(query);
-        if (query.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-
+    const handleSearchUser = async (q) => {
+        setSearchQuery(q);
+        if (q.length < 2) { setSearchResults([]); return; }
         setIsSearching(true);
         try {
-            const response = await api.get(`/users/search?q=${query}`);
-            setSearchResults(response.data.filter(u => u._id !== currentUser._id));
-        } catch (error) {
-            console.error('Error searching users:', error);
-        } finally {
-            setIsSearching(false);
-        }
+            const r = await api.get(`/users/search?q=${q}`);
+            setSearchResults(r.data.filter(u => u._id !== currentUser._id));
+        } catch (e) { console.error(e); } finally { setIsSearching(false); }
     };
 
     const handleSendChallenge = async () => {
         if (!isShadowMode && (!selectedOpponent || !selectedChallenge || isSubmitting)) return;
         if (isShadowMode && (!selectedChallenge || isSubmitting)) return;
-
         setIsSubmitting(true);
         try {
             await api.post('/duels', {
                 opponentId: isShadowMode ? currentUser._id : selectedOpponent._id,
-                type: selectedChallenge.id,
-                target: selectedChallenge.target,
-                message: challengeMessage,
-                isShadow: isShadowMode
+                type: selectedChallenge.id, target: selectedChallenge.target,
+                message: challengeMessage, isShadow: isShadowMode
             });
-
-            setToast({
-                type: 'success',
-                title: isShadowMode ? 'Shadow Duel Started!' : 'Challenge Sent!',
-                message: isShadowMode
-                    ? `You are now racing against your best self!`
-                    : `You challenged ${selectedOpponent.name} to a ${selectedChallenge.name}`
-            });
-
-            setShowCreateModal(false);
-            fetchDuels();
-        } catch (error) {
-            setToast({
-                type: 'error',
-                title: 'Error',
-                message: error.response?.data?.message || 'Failed to start duel'
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
+            setToast({ type: 'success', message: isShadowMode ? 'Shadow Duel started!' : `Challenged ${selectedOpponent.name}!` });
+            setShowCreateModal(false); fetchDuels();
+        } catch (e) {
+            setToast({ type: 'error', message: e.response?.data?.message || 'Failed to start duel' });
+        } finally { setIsSubmitting(false); }
     };
 
     const handleRespondToDuel = async (duelId, action) => {
         try {
             await api.put(`/duels/${duelId}/respond`, { action });
             fetchDuels();
-            setToast({
-                type: action === 'accept' ? 'success' : 'info',
-                title: action === 'accept' ? 'Challenge Accepted!' : 'Challenge Rejected',
-                message: action === 'accept' ? 'The duel has begun!' : 'You declined the challenge'
-            });
-        } catch (error) {
-            console.error('Error responding to duel:', error);
-            setToast({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to respond to challenge'
-            });
-        }
+            setToast({ type: action === 'accept' ? 'success' : 'info', message: action === 'accept' ? 'Challenge accepted! The duel has begun!' : 'Challenge declined' });
+        } catch (e) { setToast({ type: 'error', message: 'Failed to respond to challenge' }); }
     };
 
+    const inputCls = `w-full bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3.5
+        text-white placeholder:text-white/20 focus:border-white/20 outline-none transition-all text-sm font-light`;
+
+    // ── Guest ──
     if (!currentUser) {
         return (
-            <div className="pt-32 min-h-screen container mx-auto px-6 text-center">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                >
-                    <Swords className="w-16 h-16 mx-auto mb-4 text-red-500" />
-                    <h2 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">Productivity Duels</h2>
-                    <p className="text-gray-600 dark:text-gray-400 mb-8">Login to challenge others and boost your productivity!</p>
+            <div className="pt-32 min-h-screen flex items-center justify-center px-6" style={{ background: '#050505' }}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-sm">
+                    <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                        <Swords className="w-7 h-7 text-white/30" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Productivity Duels</h2>
+                    <p className="text-sm text-white/25 mb-8 font-light">Challenge others and boost your productivity in real-time battles.</p>
                     <button
                         onClick={() => setShowAuthModal(true)}
-                        className="px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-2xl transition-all"
+                        className="px-8 py-3.5 rounded-full text-sm font-semibold text-white transition-all"
+                        style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', boxShadow: '0 0 0 1px rgba(239,68,68,0.3)' }}
                     >
-                        Login to Start Dueling
+                        Sign In to Start Dueling
                     </button>
                 </motion.div>
                 <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
@@ -191,488 +254,342 @@ const ProductivityDuel = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black pb-20">
-            {/* Hero Banner */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-gradient-to-r from-red-700 via-orange-600 to-red-700 pt-40 pb-24 relative overflow-hidden"
-            >
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                <div className="absolute inset-0 bg-black/10"></div>
+        <div className="min-h-screen pb-24" style={{ background: '#050505' }}>
 
-                {/* Animated background elements */}
-                <motion.div
-                    animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-                    transition={{ duration: 20, repeat: Infinity }}
-                    className="absolute top-10 right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"
+            {/* ── Page Header ── */}
+            <div className="relative pt-32 pb-16 px-6 overflow-hidden">
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(239,68,68,0.05) 0%, transparent 100%)' }}
                 />
-                <motion.div
-                    animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
-                    transition={{ duration: 15, repeat: Infinity }}
-                    className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full blur-3xl"
+                <div
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[480px] h-px"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }}
                 />
-
-                {/* Doodle Pattern Overlay */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {[
-                        { Icon: Code, top: '10%', left: '10%' },
-                        { Icon: Sparkles, top: '20%', left: '80%' },
-                        { Icon: Zap, top: '60%', left: '15%' },
-                        { Icon: Coffee, top: '80%', left: '70%' },
-                        { Icon: Music, top: '15%', left: '40%' },
-                        { Icon: Sun, top: '75%', left: '30%' },
-                        { Icon: Cloud, top: '30%', left: '60%' },
-                        { Icon: Flag, top: '50%', left: '90%' },
-                        { Icon: Bookmark, top: '40%', left: '5%' },
-                        { Icon: Compass, top: '85%', left: '50%' },
-                        { Icon: Rocket, top: '5%', left: '90%' },
-                        { Icon: Smile, top: '90%', left: '10%' },
-                        { Icon: Cpu, top: '45%', left: '75%' },
-                        { Icon: Globe, top: '25%', left: '25%' },
-                        { Icon: Layers, top: '55%', left: '40%' },
-                    ].map(({ Icon, top, left }, i) => (
-                        <motion.div
-                            key={i}
-                            className="absolute text-white/40"
-                            style={{ top, left }}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{
-                                opacity: [0.4, 0.8, 0.4],
-                                scale: [1, 1.2, 1],
-                                rotate: [0, 10, -10, 0]
-                            }}
-                            transition={{
-                                duration: 4 + Math.random() * 3,
-                                repeat: Infinity,
-                                delay: Math.random() * 2
-                            }}
-                        >
-                            <Icon className="w-12 h-12 md:w-16 md:h-16" strokeWidth={1.5} />
-                        </motion.div>
-                    ))}
+                <div className="max-w-4xl mx-auto text-center">
+                    <p className="text-[10px] font-semibold tracking-[0.25em] uppercase mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                        Social Productivity
+                    </p>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
+                        Productivity Duels
+                    </h1>
+                    <p className="text-sm font-light max-w-md mx-auto" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        Compete with peers in real-time productivity challenges. First to finish wins.
+                    </p>
                 </div>
+            </div>
 
-                <div className="container mx-auto px-6 flex flex-col items-center justify-center relative z-10">
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-center"
-                    >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-red-600 mb-8 shadow-lg">
-                            <Zap className="w-4 h-4" />
-                            <span className="text-sm font-bold">Social Productivity Duel</span>
+            <div className="container mx-auto px-6 max-w-5xl">
+
+                {/* ── Challenge Type Cards ── */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-16">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 className="text-xl font-black text-white tracking-tight">Choose Your Battle</h2>
+                            <p className="text-xs mt-1 font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Pick a challenge type and challenge a friend or your shadow</p>
                         </div>
-                        <h1 className="text-5xl md:text-7xl font-black text-white mb-6 drop-shadow-lg leading-tight">
-                            Challenge & Conquer
-                        </h1>
-                        <p className="text-white/95 text-lg md:text-xl font-medium max-w-2xl mx-auto drop-shadow-md leading-relaxed mb-8">
-                            Compete with friends in real-time productivity challenges. First to finish wins! 🏆
-                        </p>
-                    </motion.div>
-                </div>
-            </motion.div>
-
-            <div className="container mx-auto px-6 -mt-16 relative z-10 max-w-6xl">
-                {/* Challenge Types */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="mb-12"
-                >
-                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Choose Your Battle</h2>
-                    <div className="grid md:grid-cols-3 gap-6">
-                        {CHALLENGE_TYPES.map((challenge, index) => (
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-4">
+                        {CHALLENGE_TYPES.map((ct, i) => (
                             <motion.div
-                                key={challenge.id}
-                                initial={{ opacity: 0, y: 20 }}
+                                key={ct.id}
+                                initial={{ opacity: 0, y: 16 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4 + index * 0.1 }}
-                                whileHover={{
-                                    y: -8,
-                                    scale: 1.02,
-                                    transition: { duration: 0.1, ease: "linear" }
+                                transition={{ delay: 0.15 + i * 0.08 }}
+                                whileHover={{ y: -4 }}
+                                className="group cursor-pointer rounded-2xl overflow-hidden transition-all"
+                                style={{
+                                    background: 'rgba(255,255,255,0.02)',
+                                    border: '1px solid rgba(255,255,255,0.06)',
                                 }}
-                                className="bg-white dark:bg-[#111] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-xl hover:shadow-2xl transition-all duration-100 cursor-pointer group"
+                                onMouseEnter={e => {
+                                    e.currentTarget.style.border = `1px solid ${ct.accent}30`;
+                                    e.currentTarget.style.background = `${ct.accent}06`;
+                                }}
+                                onMouseLeave={e => {
+                                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)';
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                                }}
+                                onClick={() => handleStartChallenge(ct)}
                             >
-                                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${challenge.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-100`}>
-                                    <challenge.icon className="w-8 h-8 text-white" />
-                                </div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{challenge.name}</h3>
-                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{challenge.description}</p>
-
-                                <div className="space-y-2 mb-4 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Target:</span>
-                                        <span className="font-bold text-gray-900 dark:text-white">{challenge.target} {challenge.unit}</span>
+                                <div className="h-px w-full" style={{ background: ct.accent + '30' }} />
+                                <div className="p-6">
+                                    <div
+                                        className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110"
+                                        style={{ background: ct.accent + '12', border: `1px solid ${ct.accent}20` }}
+                                    >
+                                        <ct.icon className="w-6 h-6" style={{ color: ct.accent }} />
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Duration:</span>
-                                        <span className="font-bold text-gray-900 dark:text-white">{challenge.duration}</span>
-                                    </div>
-                                </div>
+                                    <h3 className="text-base font-black text-white mb-1.5">{ct.name}</h3>
+                                    <p className="text-xs font-light mb-5" style={{ color: 'rgba(255,255,255,0.60)' }}>{ct.description}</p>
 
-                                <button
-                                    onClick={() => handleStartChallenge(challenge)}
-                                    className={`w-full py-3 bg-gradient-to-r ${challenge.color} text-white font-bold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 group-hover:brightness-110`}
-                                >
-                                    <Play className="w-4 h-4 fill-current" />
-                                    Start Challenge
-                                </button>
+                                    <div className="flex gap-3 mb-5">
+                                        <div className="flex-1 text-center py-2.5 rounded-xl" style={{ background: ct.accent + '08', border: `1px solid ${ct.accent}15` }}>
+                                            <div className="text-lg font-black" style={{ color: ct.accent }}>{ct.target}</div>
+                                            <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>{ct.unit}</div>
+                                        </div>
+                                        <div className="flex-1 text-center py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <div className="text-sm font-black text-white">{ct.duration}</div>
+                                            <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>Duration</div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                                        style={{ background: ct.accent + '12', border: `1px solid ${ct.accent}20`, color: ct.accent }}
+                                    >
+                                        <Play className="w-3.5 h-3.5 fill-current" /> Start Challenge
+                                    </button>
+                                </div>
                             </motion.div>
                         ))}
                     </div>
                 </motion.div>
 
-                {/* My Active Duels */}
+                {/* ── My Duels ── */}
                 {myDuels.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mb-12"
-                    >
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                            <Swords className="w-6 h-6 text-red-500" />
-                            My Duels
-                        </h2>
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {myDuels.map((duel) => {
-                                const challengeType = CHALLENGE_TYPES.find(c => c.id === duel.type) || CHALLENGE_TYPES[0];
-                                const isChallenger = duel.challenger._id === currentUser._id;
-                                const isShadow = duel.isShadow;
-                                const opponent = isShadow ? { name: 'Your Shadow' } : (isChallenger ? duel.opponent : duel.challenger);
-                                const myProgress = isChallenger ? duel.challengerProgress : duel.opponentProgress;
-                                const opponentProgress = isShadow ? duel.shadowData?.bestProgress : (isChallenger ? duel.opponentProgress : duel.challengerProgress);
-
-                                return (
-                                    <div key={duel._id} className={`bg-white dark:bg-[#111] rounded-2xl p-6 border ${isShadow ? 'border-purple-500/30' : 'border-gray-200 dark:border-white/10'} shadow-lg`}>
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${isShadow ? 'from-purple-600 to-indigo-600' : challengeType.color} flex items-center justify-center`}>
-                                                    {isShadow ? <Clock className="w-5 h-5 text-white" /> : <challengeType.icon className="w-5 h-5 text-white" />}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-gray-900 dark:text-white">
-                                                        {isShadow ? `Shadow: ${challengeType.name}` : challengeType.name}
-                                                    </h3>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                        {isShadow ? 'Racing against past best' : `vs ${opponent.name}`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${duel.status === 'active' ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' :
-                                                duel.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400' :
-                                                    'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {duel.status}
-                                            </div>
-                                        </div>
-
-                                        {duel.status === 'pending' && !isChallenger ? (
-                                            <div className="flex gap-3 mt-4">
-                                                <button
-                                                    onClick={() => handleRespondToDuel(duel._id, 'accept')}
-                                                    className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors"
-                                                >
-                                                    Accept
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRespondToDuel(duel._id, 'reject')}
-                                                    className="flex-1 py-2 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 text-gray-800 dark:text-white rounded-lg font-bold transition-colors"
-                                                >
-                                                    Decline
-                                                </button>
-                                            </div>
-                                        ) : duel.status === 'active' ? (
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <div className="flex justify-between text-sm mb-1">
-                                                        <span className="text-gray-600 dark:text-gray-400">You</span>
-                                                        <span className="font-bold text-gray-900 dark:text-white">{myProgress}/{duel.target}</span>
-                                                    </div>
-                                                    <div className="h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full bg-gradient-to-r ${challengeType.color}`}
-                                                            style={{ width: `${(myProgress / duel.target) * 100}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="flex justify-between text-sm mb-1">
-                                                        <span className="text-gray-600 dark:text-gray-400">{opponent.name}</span>
-                                                        <span className="font-bold text-gray-900 dark:text-white">{opponentProgress}/{duel.target}</span>
-                                                    </div>
-                                                    <div className="h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-gray-400 dark:bg-gray-600"
-                                                            style={{ width: `${(opponentProgress / duel.target) * 100}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="mt-4 text-center text-gray-500 dark:text-gray-400 italic text-sm">
-                                                {duel.status === 'pending' ? 'Waiting for opponent to accept...' : 'Duel ended'}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-16">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                <Swords className="w-4 h-4 text-red-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-white tracking-tight">My Duels</h2>
+                                <p className="text-xs font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>{myDuels.length} active challenge{myDuels.length !== 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {myDuels.map(duel => (
+                                <DuelCard key={duel._id} duel={duel} currentUser={currentUser} onRespond={handleRespondToDuel} />
+                            ))}
                         </div>
                     </motion.div>
                 )}
 
-                {/* Live Duels */}
+                {/* ── Live Duels ── */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                    className="bg-white dark:bg-[#111] rounded-2xl p-8 border border-gray-200 dark:border-white/10 shadow-xl mb-12"
+                    initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                    className="rounded-2xl overflow-hidden mb-16"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl flex items-center justify-center">
-                                <Zap className="w-5 h-5 text-white" />
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                <Zap className="w-4 h-4 text-red-400" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Live Duels</h2>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Watch battles unfold in real-time</p>
+                                <h2 className="text-base font-black text-white">Live Duels</h2>
+                                <p className="text-[11px] font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>Watch battles unfold in real-time</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full text-sm font-bold">
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: 'rgba(252,165,165,0.7)' }}>
+                            <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
                             {liveDuels.length} Active
                         </div>
                     </div>
 
-                    {liveDuels.length > 0 ? (
-                        <div className="space-y-4">
-                            {liveDuels.map((duel, index) => {
-                                const challengeType = CHALLENGE_TYPES.find(c => c.id === duel.type) || CHALLENGE_TYPES[0];
-                                const challengerPercent = (duel.challengerProgress / duel.target) * 100;
-                                const opponentPercent = (duel.opponentProgress / duel.target) * 100;
-
-                                return (
-                                    <motion.div
-                                        key={duel._id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.8 + index * 0.1 }}
-                                        whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.05)" }}
-                                        className="p-6 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 transition-colors"
-                                    >
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <challengeType.icon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                                                <span className="font-bold text-gray-900 dark:text-white">{challengeType.name}</span>
-                                            </div>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                Started {Math.floor((Date.now() - new Date(duel.startedAt)) / 60000)}m ago
-                                            </span>
-                                        </div>
-
-                                        {/* Progress bars */}
-                                        <div className="space-y-4">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <img src={duel.challenger.avatar || `https://ui-avatars.com/api/?name=${duel.challenger.name}`} alt="" className="w-8 h-8 rounded-full" />
-                                                        <span className="font-bold text-sm text-gray-900 dark:text-white">{duel.challenger.name}</span>
+                    <div className="p-6">
+                        {liveDuels.length > 0 ? (
+                            <div className="space-y-3">
+                                {liveDuels.map((duel, i) => {
+                                    const ct = CHALLENGE_TYPES.find(c => c.id === duel.type) || CHALLENGE_TYPES[0];
+                                    const elapsed = Math.floor((Date.now() - new Date(duel.startedAt)) / 60000);
+                                    return (
+                                        <motion.div
+                                            key={duel._id}
+                                            initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.06 }}
+                                            className="p-5 rounded-xl transition-all"
+                                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: ct.accent + '12' }}>
+                                                        <ct.icon className="w-3.5 h-3.5" style={{ color: ct.accent }} />
                                                     </div>
-                                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                                        {duel.challengerProgress}/{duel.target}
-                                                    </span>
+                                                    <span className="font-bold text-white text-sm">{ct.name}</span>
                                                 </div>
-                                                <div className="h-3 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${challengerPercent}%` }}
-                                                        transition={{ duration: 1, delay: 1 }}
-                                                        className={`h-full bg-gradient-to-r ${challengeType.color}`}
-                                                    />
-                                                </div>
+                                                <span className="text-[11px] flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                                                    <Clock className="w-3 h-3" /> {elapsed}m ago
+                                                </span>
                                             </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <img src={duel.opponent.avatar || `https://ui-avatars.com/api/?name=${duel.opponent.name}`} alt="" className="w-8 h-8 rounded-full" />
-                                                        <span className="font-bold text-sm text-gray-900 dark:text-white">{duel.opponent.name}</span>
-                                                    </div>
-                                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                                        {duel.opponentProgress}/{duel.target}
-                                                    </span>
+                                            <div className="space-y-3">
+                                                <ProgressBar label={duel.challenger.name} avatar={duel.challenger.avatar} progress={duel.challengerProgress} target={duel.target} accent={ct.accent} isYou={false} />
+                                                <div className="flex items-center gap-2 py-0.5">
+                                                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                                                    <span className="text-[10px] font-black tracking-widest" style={{ color: 'rgba(255,255,255,0.40)' }}>VS</span>
+                                                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.04)' }} />
                                                 </div>
-                                                <div className="h-3 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${opponentPercent}%` }}
-                                                        transition={{ duration: 1, delay: 1 }}
-                                                        className={`h-full bg-gradient-to-r ${challengeType.color}`}
-                                                    />
-                                                </div>
+                                                <ProgressBar label={duel.opponent.name} avatar={duel.opponent.avatar} progress={duel.opponentProgress} target={duel.target} accent={ct.accent} isYou={false} />
                                             </div>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            No live duels happening right now. Be the first to start one!
-                        </div>
-                    )}
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-16">
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <Swords className="w-6 h-6 text-white/15" />
+                                </div>
+                                <p className="text-sm font-light" style={{ color: 'rgba(255,255,255,0.50)' }}>No live duels right now.</p>
+                                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.1)' }}>Be the first to start one!</p>
+                            </div>
+                        )}
+                    </div>
                 </motion.div>
             </div>
 
-            {/* Create Challenge Modal */}
+            {/* ── Create Challenge Modal ── */}
             <AnimatePresence>
                 {showCreateModal && selectedChallenge && (
                     <>
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setShowCreateModal(false)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
                         />
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                initial={{ opacity: 0, scale: 0.94, y: 16 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                className="bg-white dark:bg-[#111] rounded-3xl max-w-md w-full p-8 border border-gray-200 dark:border-white/10 shadow-2xl"
+                                exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                                className="max-w-md w-full rounded-2xl overflow-hidden"
+                                style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}
                             >
-                                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${selectedChallenge.color} flex items-center justify-center mb-4 mx-auto`}>
-                                    <selectedChallenge.icon className="w-8 h-8 text-white" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-center mb-2 text-gray-900 dark:text-white">
-                                    {selectedChallenge.name}
-                                </h3>
-                                <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-                                    {isShadowMode ? "Race against your own historical best performance." : `Challenge a friend to ${selectedChallenge.description.toLowerCase()}`}
-                                </p>
-
-                                {/* Mode Switcher */}
-                                <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl mb-6">
-                                    <button
-                                        onClick={() => setIsShadowMode(false)}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${!isShadowMode ? 'bg-white dark:bg-white/10 shadow-sm text-red-600' : 'text-gray-500'}`}
-                                    >
-                                        <Users className="w-4 h-4" />
-                                        Social
-                                    </button>
-                                    <button
-                                        onClick={() => setIsShadowMode(true)}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${isShadowMode ? 'bg-white dark:bg-white/10 shadow-sm text-red-600' : 'text-gray-500'}`}
-                                    >
-                                        <Clock className="w-4 h-4" />
-                                        Shadow
-                                    </button>
-                                </div>
-
-                                <div className="space-y-4 mb-6">
-                                    {/* User Search - Only show if not shadow mode */}
-                                    {!isShadowMode ? (
-                                        <div className="relative">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                value={searchQuery}
-                                                onChange={(e) => handleSearchUser(e.target.value)}
-                                                placeholder="Search user to challenge..."
-                                                className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:border-red-500 outline-none transition-all"
-                                            />
-                                            {isSearching && (
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                            )}
-
-                                            {/* Search Results Dropdown */}
-                                            {searchResults.length > 0 && !selectedOpponent && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-white/10 shadow-xl max-h-48 overflow-y-auto z-50">
-                                                    {searchResults.map(user => (
-                                                        <div
-                                                            key={user._id}
-                                                            onClick={() => {
-                                                                setSelectedOpponent(user);
-                                                                setSearchQuery(user.name);
-                                                                setSearchResults([]);
-                                                            }}
-                                                            className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors"
-                                                        >
-                                                            <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}`} alt="" className="w-8 h-8 rounded-full" />
-                                                            <div className="text-left">
-                                                                <div className="font-bold text-gray-900 dark:text-white text-sm">{user.name}</div>
-                                                                <div className="text-xs text-gray-500">@{user.username}</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="p-4 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20 text-center">
-                                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">
-                                                In Shadow Mode, you race against your own record.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {!isShadowMode && selectedOpponent && (
-                                        <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
-                                            <img src={selectedOpponent.avatar || `https://ui-avatars.com/api/?name=${selectedOpponent.name}`} alt="" className="w-10 h-10 rounded-full" />
-                                            <div className="flex-1">
-                                                <div className="font-bold text-gray-900 dark:text-white">Challenging {selectedOpponent.name}</div>
-                                                <div className="text-xs text-red-500">Target: {selectedChallenge.target} {selectedChallenge.unit}</div>
+                                <div className="h-px w-full" style={{ background: selectedChallenge.accent + '50' }} />
+                                <div className="p-7">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: selectedChallenge.accent + '12', border: `1px solid ${selectedChallenge.accent}20` }}>
+                                                <selectedChallenge.icon className="w-5 h-5" style={{ color: selectedChallenge.accent }} />
                                             </div>
-                                            <button onClick={() => {
-                                                setSelectedOpponent(null);
-                                                setSearchQuery('');
-                                            }} className="p-1 hover:bg-red-200 dark:hover:bg-red-500/30 rounded-full transition-colors">
-                                                <X className="w-4 h-4 text-red-500" />
-                                            </button>
+                                            <div>
+                                                <h3 className="text-base font-black text-white">{selectedChallenge.name}</h3>
+                                                <p className="text-[11px] font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>{isShadowMode ? 'Race against your best self' : selectedChallenge.description}</p>
+                                            </div>
                                         </div>
-                                    )}
+                                        <button onClick={() => setShowCreateModal(false)} className="p-2 rounded-xl transition-colors" style={{ color: 'rgba(255,255,255,0.60)' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
 
-                                    <textarea
-                                        value={challengeMessage}
-                                        onChange={(e) => setChallengeMessage(e.target.value)}
-                                        placeholder="Add a message (optional)"
-                                        rows="3"
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:border-red-500 outline-none transition-all resize-none"
-                                    />
-                                </div>
+                                    {/* Mode switcher */}
+                                    <div className="flex p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <button
+                                            onClick={() => setIsShadowMode(false)}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-all"
+                                            style={{
+                                                background: !isShadowMode ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                                color: !isShadowMode ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)',
+                                            }}
+                                        >
+                                            <Users className="w-3.5 h-3.5" /> Social
+                                        </button>
+                                        <button
+                                            onClick={() => setIsShadowMode(true)}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-all"
+                                            style={{
+                                                background: isShadowMode ? 'rgba(168,85,247,0.12)' : 'transparent',
+                                                color: isShadowMode ? 'rgba(216,180,254,0.8)' : 'rgba(255,255,255,0.55)',
+                                            }}
+                                        >
+                                            <Shield className="w-3.5 h-3.5" /> Shadow
+                                        </button>
+                                    </div>
 
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 py-3 bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleSendChallenge}
-                                        disabled={(!isShadowMode && !selectedOpponent) || isSubmitting}
-                                        className={`flex-1 py-3 bg-gradient-to-r ${selectedChallenge.color} text-white font-bold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                                    >
-                                        {isSubmitting ? (
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <div className="space-y-4 mb-6">
+                                        {!isShadowMode ? (
+                                            <div className="relative">
+                                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.50)' }} />
+                                                <input
+                                                    type="text" value={searchQuery}
+                                                    onChange={e => handleSearchUser(e.target.value)}
+                                                    placeholder="Search user to challenge..."
+                                                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm font-light text-white placeholder:text-white/20 outline-none transition-all"
+                                                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                                />
+                                                {isSearching && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />}
+                                                {searchResults.length > 0 && !selectedOpponent && (
+                                                    <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-50" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        {searchResults.map(u => (
+                                                            <div key={u._id} onClick={() => { setSelectedOpponent(u); setSearchQuery(u.name); setSearchResults([]); }}
+                                                                className="flex items-center gap-3 p-3 cursor-pointer transition-colors"
+                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                <img src={u.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(u.name)}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                                <div>
+                                                                    <div className="font-semibold text-white text-sm">{u.name}</div>
+                                                                    <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>@{u.username}</div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         ) : (
-                                            <>
-                                                {isShadowMode ? <Clock className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                                                {isShadowMode ? 'Start Shadow Duel' : 'Send Challenge'}
-                                            </>
+                                            <div className="p-4 rounded-xl text-center" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                                                <Shield className="w-7 h-7 mx-auto mb-2" style={{ color: 'rgba(216,180,254,0.6)' }} />
+                                                <p className="text-sm font-semibold" style={{ color: 'rgba(216,180,254,0.8)' }}>Shadow Mode</p>
+                                                <p className="text-xs mt-1 font-light" style={{ color: 'rgba(168,85,247,0.5)' }}>Race against your own historical best performance.</p>
+                                            </div>
                                         )}
-                                    </button>
+
+                                        {!isShadowMode && selectedOpponent && (
+                                            <div className="flex items-center gap-3 p-3.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                                <img src={selectedOpponent.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(selectedOpponent.name)}`} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                                <div className="flex-1">
+                                                    <div className="font-semibold text-white text-sm">Challenging {selectedOpponent.name}</div>
+                                                    <div className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Target: {selectedChallenge.target} {selectedChallenge.unit}</div>
+                                                </div>
+                                                <button onClick={() => { setSelectedOpponent(null); setSearchQuery(''); }}
+                                                    className="p-1.5 rounded-lg transition-colors" style={{ color: 'rgba(255,255,255,0.60)' }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <textarea
+                                            value={challengeMessage} onChange={e => setChallengeMessage(e.target.value)}
+                                            placeholder="Add a message (optional)" rows="2"
+                                            className="w-full px-4 py-3.5 rounded-xl text-sm font-light text-white placeholder:text-white/20 outline-none transition-all resize-none"
+                                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button onClick={() => setShowCreateModal(false)}
+                                            className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-all"
+                                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)' }}>
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSendChallenge}
+                                            disabled={(!isShadowMode && !selectedOpponent) || isSubmitting}
+                                            className="flex-1 py-3.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                            style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', boxShadow: '0 0 0 1px rgba(239,68,68,0.25)' }}
+                                        >
+                                            {isSubmitting ? (
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : isShadowMode ? (
+                                                <><Shield className="w-4 h-4" /> Start Shadow Duel</>
+                                            ) : (
+                                                <><UserPlus className="w-4 h-4" /> Send Challenge</>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </motion.div>
                         </div>
                     </>
                 )}
             </AnimatePresence>
+
             <Toast toast={toast} onClose={() => setToast(null)} />
+            <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </div>
     );
 };

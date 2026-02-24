@@ -74,7 +74,22 @@ const userSchema = mongoose.Schema({
         isActive: { type: Boolean, default: true } // True if not expired
     },
     // Transaction Limits
-    totalDeposited: { type: Number, default: 0 } // Lifetime deposit tracking
+    totalDeposited: { type: Number, default: 0 }, // Lifetime deposit tracking
+    // Chat Settings
+    chatSettings: {
+        lastSeen: { type: String, default: 'everyone' },
+        profilePhoto: { type: String, default: 'everyone' },
+        showOnlineStatus: { type: Boolean, default: true },
+        readReceipts: { type: Boolean, default: true },
+        messageNotifications: { type: Boolean, default: true },
+        groupNotifications: { type: Boolean, default: true },
+        mediaAutoDownload: { type: String, default: 'wifi' },
+        chatWallpaper: { type: String, default: 'default' }
+    },
+    // Season system — reset each season; xp/coins above are lifetime
+    seasonXP: { type: Number, default: 0 },
+    seasonCoins: { type: Number, default: 0 },
+    seasonTasksCompleted: { type: Number, default: 0 }
 }, {
     timestamps: true
 });

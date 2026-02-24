@@ -17,17 +17,23 @@ export const DataProvider = ({ children }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [tasksData, txsData] = await Promise.all([
-                    getTasks(),
-                    currentUser ? getTransactions() : Promise.resolve([])
-                ]);
+                const tasksData = await getTasks();
                 setTasks(tasksData);
-                setTransactions(txsData);
             } catch (error) {
-                console.error("Failed to fetch data", error);
-            } finally {
-                setLoading(false);
+                console.error("Failed to fetch tasks", error);
             }
+
+            if (currentUser) {
+                try {
+                    const txsData = await getTransactions();
+                    setTransactions(txsData);
+                } catch (error) {
+                    console.error("Failed to fetch transactions (token may be expired)", error);
+                    setTransactions([]);
+                }
+            }
+
+            setLoading(false);
         };
 
         fetchData();

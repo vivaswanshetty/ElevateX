@@ -1,14 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap, Wallet, LogOut, User, Sun, Moon, Search, Coins, Home, Compass, Swords, PlusCircle, Trophy, Rss, Users, Bell, MessageSquare, Beaker, Globe, Crown } from 'lucide-react';
+import {
+    Menu, X, Zap, LogOut, Trophy,
+    Home, Compass, Swords, PlusCircle, Rss, Users, Bell, BellRing,
+    MessageSquare, Beaker, Globe, Crown, Search, Brain, BarChart2
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
 import api from '../api/axios';
+import usePushNotifications from '../hooks/usePushNotifications';
+
+// ── Bottom dock links ──────────────────────────────────────────────────────────
+const DOCK_LINKS_LOGGED_IN = [
+    { name: 'Home', path: '/', icon: Home },
+    { name: 'Explore', path: '/explore', icon: Compass },
+    { name: 'Create', path: '/create', icon: PlusCircle },
+    { name: 'Feed', path: '/feed', icon: Rss },
+    { name: 'Chat', path: '/chat', icon: MessageSquare, badgeKey: 'message' },
+];
+const DOCK_LINKS_LOGGED_OUT = [
+    { name: 'Home', path: '/', icon: Home },
+    { name: 'Explore', path: '/explore', icon: Compass },
+    { name: 'Rankings', path: '/leaderboard', icon: Trophy },
+    { name: 'Feed', path: '/feed', icon: Rss },
+    { name: 'Search', path: '/search', icon: Search },
+];
 
 const Navbar = () => {
-    const { currentUser, logout, getUserProfile, theme, toggleTheme } = useAuth();
+    const { currentUser, logout, getUserProfile } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -16,34 +37,25 @@ const Navbar = () => {
     const [unreadMessageCount, setUnreadMessageCount] = useState(0);
     const location = useLocation();
     const userProfile = getUserProfile();
-    const menuRef = React.useRef(null); // Added menuRef
+    const menuRef = React.useRef(null);
+    const { isSubscribed, isLoading: pushLoading, requestPermission, unsubscribe } = usePushNotifications();
 
     useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 20); // Changed threshold to 20 and used setIsScrolled
-        };
+        const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Fetch unread activity and message count
     useEffect(() => {
         if (currentUser) {
             fetchUnreadCounts();
-            // Poll every 30 seconds for new messages and activities (increased to prevent 429 errors)
             const interval = setInterval(fetchUnreadCounts, 30000);
-
-            // Listen for instant updates
-            const handleMessagesRead = () => fetchUnreadCounts();
-            const handleActivityUpdated = () => fetchUnreadCounts();
-
-            window.addEventListener('messages-read', handleMessagesRead);
-            window.addEventListener('activity-updated', handleActivityUpdated);
-
+            window.addEventListener('messages-read', fetchUnreadCounts);
+            window.addEventListener('activity-updated', fetchUnreadCounts);
             return () => {
                 clearInterval(interval);
-                window.removeEventListener('messages-read', handleMessagesRead);
-                window.removeEventListener('activity-updated', handleActivityUpdated);
+                window.removeEventListener('messages-read', fetchUnreadCounts);
+                window.removeEventListener('activity-updated', fetchUnreadCounts);
             };
         }
     }, [currentUser]);
@@ -57,60 +69,34 @@ const Navbar = () => {
             setUnreadCount(activityRes.data.count);
             setUnreadMessageCount(messageRes.data.count);
         } catch (error) {
-            // Only log errors that aren't network-related or if retry attempts exhausted
             if (error.code === 'ERR_NETWORK' || error.code === 'ERR_NETWORK_CHANGED') {
-                // Silently retry once for network errors
-                if (retryCount < 1) {
-                    setTimeout(() => fetchUnreadCounts(retryCount + 1), 2000);
-                }
-                // Don't log network errors to avoid console spam
+                if (retryCount < 1) setTimeout(() => fetchUnreadCounts(retryCount + 1), 2000);
                 return;
             }
-
-            // Log other types of errors only once
-            if (retryCount === 0) {
-                console.warn('Unable to fetch unread counts:', error.message);
-            }
+            if (retryCount === 0) console.warn('Unable to fetch unread counts:', error.message);
         }
     };
 
-    // Close menu when route changes
+    useEffect(() => { setIsOpen(false); }, [location]);
     useEffect(() => {
-        setIsOpen(false);
-    }, [location]);
-
-    // Prevent body scroll when hamburger menu is open
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-
-        return () => {
-            document.body.style.overflow = '';
-        };
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
-
-    // Reset menu scroll position when opening
     useEffect(() => {
-        if (isOpen && menuRef.current) {
-            menuRef.current.scrollTop = 0;
-        }
+        if (isOpen && menuRef.current) menuRef.current.scrollTop = 0;
     }, [isOpen]);
 
     const handleLogoClick = (e) => {
-        if (location.pathname === '/') {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     };
 
     const navLinks = [
         { name: 'Home', path: '/', icon: Home },
         { name: 'Feed', path: '/feed', icon: Rss },
         { name: 'Explore', path: '/explore', icon: Compass },
-        { name: 'Find Users', path: '/search', icon: Users },
+        { name: 'AI Matching', path: '/aimatching', icon: Brain },
+        { name: 'Community', path: '/community', icon: Users },
+        { name: 'Find Users', path: '/search', icon: Search },
         { name: 'Resonance Room', path: '/resonance', icon: Globe },
         { name: 'Duels', path: '/duel', icon: Swords },
         { name: 'Alchemy Lab', path: '/alchemy', icon: Beaker },
@@ -118,667 +104,574 @@ const Navbar = () => {
         { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
         { name: 'Activity', path: '/activity', icon: Bell },
         { name: 'Messages', path: '/chat', icon: MessageSquare },
+        { name: 'Analytics', path: '/analytics', icon: BarChart2 },
         { name: 'Subscription', path: '/subscription', icon: Crown },
     ];
 
-    const menuVariants = {
-        closed: {
-            x: "-100%",
-            transition: {
-                type: "tween",
-                ease: "easeInOut",
-                duration: 0.3
-            }
-        },
-        open: {
-            x: "0%",
-            transition: {
-                type: "tween",
-                ease: "easeInOut",
-                duration: 0.3
-            }
-        }
-    };
+    const topBarLinks = currentUser ? [
+        { name: 'Rankings', path: '/leaderboard', icon: Trophy, tooltip: 'Global Leaderboard' },
+        { name: 'Activity', path: '/activity', icon: Bell, badge: unreadCount, tooltip: 'Notifications' },
+        { name: 'Find Users', path: '/search', icon: Search, tooltip: 'Search for people' },
+        { name: 'AI Match', path: '/aimatching', icon: Brain, tooltip: 'AI-powered task matching' },
+    ] : [
+        { name: 'Community', path: '/community', icon: Users, tooltip: 'Join the community' },
+        { name: 'AI Match', path: '/aimatching', icon: Brain, tooltip: 'AI-powered task matching' },
+    ];
 
-    const linkVariants = {
-        closed: { x: -50, opacity: 0 },
-        open: (i) => ({
-            x: 0,
-            opacity: 1,
-            transition: {
-                delay: i * 0.1,
-                type: "spring",
-                stiffness: 300,
-                damping: 24
-            }
-        })
+    const isActive = (path) => location.pathname === path;
+    const dockLinks = currentUser ? DOCK_LINKS_LOGGED_IN : DOCK_LINKS_LOGGED_OUT;
+    const getBadge = (link) => {
+        if (link.badgeKey === 'activity') return unreadCount;
+        if (link.badgeKey === 'message') return unreadMessageCount;
+        return 0;
     };
 
     return (
         <>
+            {/* ════════════════════════════════════════
+                TOP BAR — slightly taller, richer feel
+            ════════════════════════════════════════ */}
             <motion.nav
-                className={`fixed top-0 left-0 w-full z-[100] transition-all duration-700 ${scrolled
-                    ? 'bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-gray-200/60 dark:border-white/[0.08] shadow-xl shadow-black/[0.03] dark:shadow-black/40'
-                    : 'bg-gradient-to-b from-white/85 to-white/50 dark:from-black/85 dark:to-black/50 backdrop-blur-xl'
-                    }`}
-                style={{ pointerEvents: 'auto' }}
-                initial={{ y: -100, opacity: 0 }}
+                className="fixed top-0 left-0 w-full z-[100]"
+                style={{
+                    background: scrolled
+                        ? 'rgba(4,4,4,0.96)'
+                        : 'rgba(4,4,4,0.75)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    borderBottom: scrolled
+                        ? '1px solid rgba(255,255,255,0.07)'
+                        : '1px solid rgba(255,255,255,0.03)',
+                    transition: 'background 0.4s, border-color 0.4s',
+                }}
+                initial={{ y: -80, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             >
-                {/* Animated Top Border Gradient */}
-                <motion.div
-                    className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-red-500/40 to-transparent"
-                    style={{ opacity: scrolled ? 0.9 : 0.3 }}
-                />
+                {/* Subtle red glow line at very bottom of nav */}
+                <div style={{
+                    position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+                    width: '40%', height: '1px',
+                    background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.25), transparent)',
+                    opacity: scrolled ? 1 : 0,
+                    transition: 'opacity 0.4s',
+                    pointerEvents: 'none',
+                }} />
 
-                <div className="container mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center" style={{ position: 'relative' }}>
-                    <div className="flex items-center gap-3 sm:gap-4" style={{ pointerEvents: 'auto', zIndex: 101 }}>
-                        {/* Menu Toggle Button */}
-                        <motion.button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsOpen(!isOpen);
-                            }}
-                            className="p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/5 dark:to-white/[0.02] hover:from-red-50 hover:to-orange-50 dark:hover:from-red-500/10 dark:hover:to-orange-500/10 text-gray-900 dark:text-white transition-all duration-300 relative group border border-gray-200/50 dark:border-white/[0.08] hover:border-red-300/50 dark:hover:border-red-500/30 shadow-sm hover:shadow-md"
+                <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+
+                    {/* ── Left: hamburger + logo ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+                        {/* Hamburger */}
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
                             aria-label="Toggle Menu"
-                            style={{ pointerEvents: 'auto', cursor: 'pointer', touchAction: 'manipulation' }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            style={{
+                                width: '38px', height: '38px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                borderRadius: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'rgba(255,255,255,0.5)',
+                                cursor: 'pointer', transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
                         >
-                            <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center" style={{ pointerEvents: 'none' }}>
-                                <motion.div
-                                    animate={{
-                                        rotate: isOpen ? 180 : 0,
-                                        opacity: isOpen ? 0 : 1,
-                                        scale: isOpen ? 0.5 : 1
-                                    }}
-                                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                                    className="absolute inset-0 flex items-center justify-center"
-                                    style={{ pointerEvents: 'none' }}
-                                >
-                                    <Menu className="w-full h-full" />
-                                </motion.div>
-                                <motion.div
-                                    animate={{
-                                        rotate: isOpen ? 0 : -180,
-                                        opacity: isOpen ? 1 : 0,
-                                        scale: isOpen ? 1 : 0.5
-                                    }}
-                                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                                    className="absolute inset-0 flex items-center justify-center"
-                                    style={{ pointerEvents: 'none' }}
-                                >
-                                    <X className="w-full h-full" />
-                                </motion.div>
-                            </div>
-                            {/* Hover glow effect */}
-                            <motion.div
-                                className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur-md"
-                                style={{
-                                    background: 'radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%)',
-                                }}
-                            />
-                        </motion.button>
+                            <AnimatePresence mode="wait" initial={false}>
+                                {isOpen
+                                    ? <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.18 }}><X style={{ width: '16px', height: '16px' }} /></motion.div>
+                                    : <motion.div key="menu" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.18 }}><Menu style={{ width: '16px', height: '16px' }} /></motion.div>
+                                }
+                            </AnimatePresence>
+                        </button>
 
                         {/* Logo */}
-                        <Link
-                            to="/"
-                            className="flex items-center gap-2 sm:gap-2.5 group relative"
-                            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                            onClick={handleLogoClick}
+                        <Link to="/" onClick={handleLogoClick} style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none' }}
+                            className="group"
                         >
-                            {/* Logo Icon Container */}
-                            <motion.div
-                                className="relative flex items-center justify-center"
-                                whileHover={{ scale: 1.15, rotate: [0, -8, 8, 0] }}
-                                whileTap={{ scale: 0.95 }}
-                                transition={{ duration: 0.4, type: "spring", stiffness: 400 }}
-                            >
-                                {/* Simple glow behind icon */}
-                                <div className="absolute inset-0 bg-red-600/50 rounded-full blur-md group-hover:bg-red-600/70 transition-all duration-300" />
-
-                                {/* Metallic Icon - True Red */}
-                                <motion.div
-                                    className="relative z-10"
-                                    whileHover={{ scale: 1.05 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <Zap
-                                        className="w-6 h-6 sm:w-7 sm:h-7 drop-shadow-[0_0_12px_rgba(220,38,38,0.9)]"
-                                        style={{
-                                            pointerEvents: 'none',
-                                            fill: 'url(#metallic-red-gradient)',
-                                            color: '#dc2626'
-                                        }}
-                                    />
-                                    {/* SVG gradient definition */}
-                                    <svg width="0" height="0" className="absolute">
-                                        <defs>
-                                            <linearGradient id="metallic-red-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" stopColor="#ee0000" />
-                                                <stop offset="25%" stopColor="#ff3333" />
-                                                <stop offset="50%" stopColor="#ff0000" />
-                                                <stop offset="75%" stopColor="#cc0000" />
-                                                <stop offset="100%" stopColor="#ee0000" />
-                                            </linearGradient>
-                                        </defs>
-                                    </svg>
-                                </motion.div>
-                            </motion.div>
-
-
-                            {/* Logo Text - Metallic with Red Glow on Hover */}
-                            <div className="relative overflow-hidden">
-                                {/* Light mode - dark metallic base */}
-                                <motion.span
-                                    className="text-xl sm:text-2xl font-black tracking-tight dark:hidden"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 20%, #1a1a1a 40%, #6a6a6a 60%, #1a1a1a 80%, #4a4a4a 100%)',
-                                        WebkitBackgroundClip: 'text',
-                                        backgroundClip: 'text',
-                                        color: 'transparent',
-                                        textShadow: '0 1px 2px rgba(255,255,255,0.1)',
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    ElevateX
-                                </motion.span>
-
-                                {/* Light mode - red metallic overlay on hover */}
-                                <motion.span
-                                    className="absolute inset-0 text-xl sm:text-2xl font-black tracking-tight dark:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 20%, #f87171 40%, #ef4444 60%, #dc2626 80%, #b91c1c 100%)',
-                                        WebkitBackgroundClip: 'text',
-                                        backgroundClip: 'text',
-                                        color: 'transparent',
-                                        textShadow: '0 0 8px rgba(239,68,68,0.3)',
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    ElevateX
-                                </motion.span>
-
-                                {/* Dark mode - silver metallic base */}
-                                <motion.span
-                                    className="text-xl sm:text-2xl font-black tracking-tight hidden dark:inline"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #e8e8e8 0%, #ffffff 20%, #c0c0c0 40%, #ffffff 60%, #e8e8e8 80%, #d0d0d0 100%)',
-                                        WebkitBackgroundClip: 'text',
-                                        backgroundClip: 'text',
-                                        color: 'transparent',
-                                        textShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    ElevateX
-                                </motion.span>
-
-                                {/* Dark mode - red metallic overlay on hover */}
-                                <motion.span
-                                    className="absolute inset-0 text-xl sm:text-2xl font-black tracking-tight hidden dark:inline opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #f87171 0%, #fca5a5 20%, #f87171 40%, #fca5a5 60%, #f87171 80%, #ef4444 100%)',
-                                        WebkitBackgroundClip: 'text',
-                                        backgroundClip: 'text',
-                                        color: 'transparent',
-                                        textShadow: '0 0 10px rgba(248,113,113,0.4)',
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    ElevateX
-                                </motion.span>
-
-                                {/* Shimmer effect on hover */}
-                                <motion.div
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
-                                    initial={{ x: "-100%" }}
-                                    whileHover={{ x: "100%" }}
-                                    transition={{ duration: 0.5 }}
-                                />
+                            <div style={{ position: 'relative', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.3s' }} className="group-hover:scale-110">
+                                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,38,38,0.4) 0%, transparent 70%)' }} />
+                                <Zap style={{ width: '20px', height: '20px', color: '#ef4444', fill: '#ef4444', filter: 'drop-shadow(0 0 8px rgba(220,38,38,0.9))', position: 'relative', zIndex: 1 }} />
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '17px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', lineHeight: 1 }}>ElevateX</span>
                             </div>
                         </Link>
                     </div>
 
-                    {/* Right Side Icons */}
-                    <div className="flex items-center gap-2 sm:gap-3 relative" style={{ pointerEvents: 'auto', zIndex: 101 }}>
-                        {/* Desktop Navigation Icons */}
-                        {/* Desktop Navigation Icons */}
-                        {[
-                            { name: 'Feed', path: '/feed', icon: Rss },
-                            { name: 'Explore', path: '/explore', icon: Compass },
-                            { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-                            { name: 'Subscription', path: '/subscription', icon: Crown },
-                            ...(currentUser ? [
-                                { name: 'Create Task', path: '/create', icon: PlusCircle },
-                                { name: 'Activity', path: '/activity', icon: Bell, badge: unreadCount, badgeColor: 'red' },
-                                { name: 'Messages', path: '/chat', icon: MessageSquare, badge: unreadMessageCount, badgeColor: 'yellow' }
-                            ] : [])
-                        ].map(link => (
-                            <motion.div
-                                key={link.name}
-                                className="inline-flex relative"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.98 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <Link
-                                    to={link.path}
-                                    className={`hidden md:flex relative group p-2.5 rounded-xl transition-all duration-300 ${location.pathname === link.path
-                                        ? 'bg-gradient-to-br from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/40'
-                                        : 'bg-gray-50/50 dark:bg-white/[0.03] hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-150 dark:hover:from-white/[0.08] dark:hover:to-white/[0.05] text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/[0.08] hover:border-red-200/60 dark:hover:border-red-500/20 shadow-sm hover:shadow-md'
-                                        }`}
-                                    style={{ pointerEvents: 'auto', cursor: 'pointer', touchAction: 'manipulation' }}
-                                >
-                                    <link.icon className="w-5 h-5" style={{ pointerEvents: 'none' }} />
+                    {/* ── Right: top-bar icon links + avatar ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-                                    {/* Badge Logic */}
-                                    {link.badge > 0 && (
-                                        <motion.span
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                                            className={`absolute -top-1 -right-1 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-black ${link.badgeColor === 'yellow'
-                                                ? 'bg-gradient-to-br from-yellow-400 to-yellow-500'
-                                                : 'bg-gradient-to-br from-red-500 to-red-600'
-                                                }`}
+                        {/* Desktop icon links with labels (hidden on mobile) */}
+                        <div className="hidden md:flex" style={{ alignItems: 'center', gap: '3px' }}>
+                            {topBarLinks.map(link => {
+                                const active = isActive(link.path);
+                                return (
+                                    <div key={link.name} style={{ position: 'relative' }} className="group">
+                                        <Link
+                                            to={link.path}
+                                            style={{
+                                                position: 'relative',
+                                                height: '34px',
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                padding: '0 11px',
+                                                borderRadius: '10px', textDecoration: 'none',
+                                                background: active ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)',
+                                                border: `1px solid ${active ? 'rgba(239,68,68,0.28)' : 'rgba(255,255,255,0.07)'}`,
+                                                color: active ? '#ef4444' : 'rgba(255,255,255,0.4)',
+                                                transition: 'all 0.2s',
+                                            }}
+                                            onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.11)'; } }}
+                                            onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; } }}
                                         >
-                                            {link.badge > 9 ? '9+' : link.badge}
-                                        </motion.span>
-                                    )}
+                                            <link.icon style={{ width: '13px', height: '13px', flexShrink: 0 }} />
+                                            <span style={{ fontSize: '12px', fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+                                                {link.name}
+                                            </span>
+                                            {(link.badge ?? 0) > 0 && (
+                                                <span style={{
+                                                    minWidth: '16px', height: '16px', borderRadius: '8px', padding: '0 3px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '9px', fontWeight: 900, color: '#fff',
+                                                    background: '#ef4444', marginLeft: '2px',
+                                                }}>
+                                                    {link.badge > 9 ? '9+' : link.badge}
+                                                </span>
+                                            )}
+                                        </Link>
 
-                                    <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl z-[200]">
-                                        {link.name}
-                                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-white rotate-45"></span>
-                                    </span>
-                                </Link>
-                                {/* Active indicator underline - positioned on wrapper for centering */}
-                                {location.pathname === link.path && (
-                                    <motion.div
-                                        layoutId="activeNavIndicator"
-                                        className="absolute -bottom-2 left-0 right-0 mx-auto w-4 h-0.5 bg-gradient-to-r from-red-400 to-orange-400 rounded-full shadow-lg shadow-red-500/50"
-                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                    />
-                                )}
-                            </motion.div>
-                        ))}
+                                        {/* Tooltip on hover */}
+                                        <div className="opacity-0 group-hover:opacity-100 pointer-events-none" style={{
+                                            position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                                            marginTop: '8px', padding: '5px 10px',
+                                            background: 'rgba(10,10,10,0.95)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '8px',
+                                            fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)',
+                                            whiteSpace: 'nowrap',
+                                            transition: 'opacity 0.15s',
+                                            zIndex: 200,
+                                        }}>
+                                            {link.tooltip || link.name}
+                                        </div>
+                                    </div>
+                                );
+                            })}
 
-                        {/* Search Button */}
-                        <motion.div
-                            className="inline-flex relative"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <Link
-                                to="/search"
-                                className={`group p-2.5 rounded-xl transition-all relative ${location.pathname === '/search'
-                                    ? 'bg-gradient-to-br from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/40'
-                                    : 'bg-gray-50/50 dark:bg-white/[0.03] hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-150 dark:hover:from-white/[0.08] dark:hover:to-white/[0.05] text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/[0.08] hover:border-red-200/60 dark:hover:border-red-500/20 shadow-sm hover:shadow-md'
-                                    }`}
-                                style={{ pointerEvents: 'auto', cursor: 'pointer', touchAction: 'manipulation' }}
-                            >
-                                <Search className="w-5 h-5" style={{ pointerEvents: 'none' }} />
-                                <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl z-[200]">
-                                    Search
-                                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-white rotate-45"></span>
-                                </span>
-                            </Link>
-                            {/* Active indicator */}
-                            {location.pathname === '/search' && (
-                                <motion.div
-                                    layoutId="activeNavIndicator"
-                                    className="absolute -bottom-2 left-0 right-0 mx-auto w-4 h-0.5 bg-gradient-to-r from-red-400 to-orange-400 rounded-full shadow-lg shadow-red-500/50"
-                                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                />
-                            )}
-                        </motion.div>
+                            {/* Divider */}
+                            <div style={{ width: '1px', height: '22px', background: 'rgba(255,255,255,0.06)', margin: '0 5px' }} />
+                        </div>
 
-                        {/* Theme Toggle */}
-                        <motion.div
-                            className="inline-flex relative"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleTheme();
-                                }}
-                                className="group p-2.5 rounded-xl bg-gray-50/50 dark:bg-white/[0.03] hover:bg-gradient-to-br hover:from-red-50 hover:to-orange-50 dark:hover:from-red-500/10 dark:hover:to-orange-500/10 text-gray-700 dark:text-gray-300 transition-all relative border border-gray-200/50 dark:border-white/[0.08] hover:border-red-300/60 dark:hover:border-red-500/30 shadow-sm hover:shadow-md"
-                                style={{ pointerEvents: 'auto', cursor: 'pointer', touchAction: 'manipulation' }}
-                            >
-                                <motion.div
-                                    whileHover={{ rotate: 180 }}
-                                    transition={{ duration: 0.4 }}
+                        {/* Push Notification Bell — shown when logged in */}
+                        {currentUser && (
+                            <div style={{ position: 'relative' }} className="group">
+                                <button
+                                    onClick={() => isSubscribed ? unsubscribe() : requestPermission()}
+                                    disabled={pushLoading}
+                                    title={isSubscribed ? 'Disable push notifications' : 'Enable push notifications'}
+                                    style={{
+                                        width: '38px', height: '38px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        borderRadius: '12px',
+                                        background: isSubscribed ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${isSubscribed ? 'rgba(239,68,68,0.28)' : 'rgba(255,255,255,0.08)'}`,
+                                        color: isSubscribed ? '#ef4444' : 'rgba(255,255,255,0.40)',
+                                        cursor: pushLoading ? 'wait' : 'pointer',
+                                        transition: 'all 0.2s',
+                                        flexShrink: 0,
+                                    }}
+                                    onMouseEnter={e => { if (!isSubscribed) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; } }}
+                                    onMouseLeave={e => { if (!isSubscribed) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.40)'; } }}
                                 >
-                                    {theme === 'dark' ? <Sun className="w-5 h-5" style={{ pointerEvents: 'none' }} /> : <Moon className="w-5 h-5" style={{ pointerEvents: 'none' }} />}
-                                </motion.div>
-                                <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl z-[200]">
-                                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-white rotate-45"></span>
-                                </span>
+                                    {isSubscribed
+                                        ? <BellRing style={{ width: '15px', height: '15px' }} />
+                                        : <Bell style={{ width: '15px', height: '15px' }} />
+                                    }
+                                    {isSubscribed && (
+                                        <span style={{
+                                            position: 'absolute', top: '8px', right: '8px',
+                                            width: '6px', height: '6px', borderRadius: '50%',
+                                            background: '#ef4444',
+                                            boxShadow: '0 0 0 2px rgba(4,4,4,0.96)',
+                                        }} />
+                                    )}
+                                </button>
+                                {/* Tooltip */}
+                                <div className="opacity-0 group-hover:opacity-100 pointer-events-none" style={{
+                                    position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                                    marginTop: '8px', padding: '5px 10px',
+                                    background: 'rgba(10,10,10,0.95)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: '8px',
+                                    fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'opacity 0.15s',
+                                    zIndex: 200,
+                                }}>
+                                    {isSubscribed ? 'Notifications ON' : 'Enable Notifications'}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Avatar / Login */}
+                        {currentUser ? (
+                            <Link
+                                to="/profile"
+                                title="Profile"
+                                style={{
+                                    width: '38px', height: '38px',
+                                    borderRadius: '12px', overflow: 'hidden',
+                                    border: '1.5px solid rgba(255,255,255,0.1)',
+                                    display: 'block', transition: 'border-color 0.2s',
+                                    flexShrink: 0,
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                            >
+                                <img src={userProfile?.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={() => setShowAuthModal(true)}
+                                style={{
+                                    padding: '0 16px', height: '38px',
+                                    borderRadius: '12px',
+                                    background: 'rgba(239,68,68,0.12)',
+                                    border: '1px solid rgba(239,68,68,0.28)',
+                                    color: '#ef4444',
+                                    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                    letterSpacing: '0.01em',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.28)'; }}
+                            >
+                                Login
                             </button>
-                        </motion.div>
+                        )}
                     </div>
                 </div>
-
-                {/* Bottom glow effect when scrolled */}
-                <motion.div
-                    className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-red-500/30 to-transparent"
-                    animate={{
-                        opacity: scrolled ? 1 : 0,
-                    }}
-                    transition={{ duration: 0.3 }}
-                />
             </motion.nav>
 
-            {/* Full Screen Menu Overlay - INSANELY ENHANCED - PORTALED */}
+            {/* ════════════════════════════════════════
+                BOTTOM DOCK — polished pill nav
+            ════════════════════════════════════════ */}
+            <motion.div
+                style={{
+                    position: 'fixed',
+                    bottom: '36px',
+                    left: 0, right: 0,
+                    zIndex: 99,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',      // let the inner pill capture events
+                }}
+                initial={{ y: 80, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            >
+                {/* Pill container */}
+                <div style={{
+                    pointerEvents: 'all',
+                    display: 'flex', alignItems: 'center',
+                    gap: '2px',
+                    padding: '5px 6px',
+                    background: 'rgba(10,10,10,0.92)',
+                    backdropFilter: 'blur(28px)',
+                    WebkitBackdropFilter: 'blur(28px)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '22px',
+                    boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+                }}>
+                    {dockLinks.map((link) => {
+                        const active = isActive(link.path);
+                        const badge = getBadge(link);
+                        const Icon = link.icon;
+                        const isCreate = link.path === '/create';
+
+                        return (
+                            <Link
+                                key={link.name}
+                                to={link.path}
+                                title={link.name}
+                                style={{
+                                    position: 'relative',
+                                    display: 'flex', flexDirection: 'column',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    gap: '4px',
+                                    /* Every item: identical fixed width & padding */
+                                    width: '58px',
+                                    paddingTop: '9px',
+                                    paddingBottom: '9px',
+                                    borderRadius: '16px',
+                                    textDecoration: 'none',
+                                    color: active
+                                        ? (isCreate ? '#fff' : '#ef4444')
+                                        : 'rgba(255,255,255,0.38)',
+                                    transition: 'color 0.18s',
+                                }}
+                                onMouseEnter={e => {
+                                    if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
+                                }}
+                                onMouseLeave={e => {
+                                    if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.38)';
+                                }}
+                            >
+                                {/* Single animated active background — same shape/size for every item */}
+                                {active && (
+                                    <motion.div
+                                        layoutId="dock-active"
+                                        style={{
+                                            position: 'absolute', inset: 0,
+                                            borderRadius: '16px',
+                                            background: isCreate
+                                                ? 'linear-gradient(135deg,#dc2626,#ef4444)'
+                                                : 'rgba(239,68,68,0.11)',
+                                            border: `1px solid ${isCreate
+                                                ? 'rgba(239,68,68,0.55)'
+                                                : 'rgba(239,68,68,0.22)'}`,
+                                            boxShadow: isCreate
+                                                ? '0 4px 18px rgba(220,38,38,0.32)'
+                                                : 'none',
+                                        }}
+                                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                                    />
+                                )}
+
+                                {/* Badge */}
+                                {badge > 0 && (
+                                    <span style={{
+                                        position: 'absolute', top: '4px', right: '9px',
+                                        minWidth: '14px', height: '14px',
+                                        borderRadius: '7px', padding: '0 3px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '8px', fontWeight: 900, color: '#fff',
+                                        background: '#ef4444',
+                                        border: '1.5px solid #0a0a0a',
+                                        zIndex: 2,
+                                    }}>
+                                        {badge > 9 ? '9+' : badge}
+                                    </span>
+                                )}
+
+                                {/* Icon — identical size for every item */}
+                                <Icon style={{
+                                    position: 'relative', zIndex: 1,
+                                    width: '17px', height: '17px',
+                                    strokeWidth: active ? 2.2 : 1.7,
+                                    transition: 'stroke-width 0.18s',
+                                }} />
+
+                                {/* Label */}
+                                <span style={{
+                                    position: 'relative', zIndex: 1,
+                                    fontSize: '9px',
+                                    fontWeight: active ? 700 : 500,
+                                    letterSpacing: '0.02em',
+                                    lineHeight: 1,
+                                    transition: 'font-weight 0.18s',
+                                }}>
+                                    {link.name}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </motion.div>
+
+            {/* ════════════════════════════════════════
+                HAMBURGER DRAWER
+            ════════════════════════════════════════ */}
             {createPortal(
                 <AnimatePresence>
                     {isOpen && (
                         <>
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2 }}
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                transition={{ duration: 0.22 }}
                                 onClick={() => setIsOpen(false)}
-                                className="fixed inset-0 top-0 left-0 w-full h-full bg-black/60 backdrop-blur-sm z-[9998]"
-                                style={{ position: 'fixed' }}
+                                style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
                             />
+
                             <motion.div
                                 ref={menuRef}
-                                variants={menuVariants}
-                                initial="closed"
-                                animate="open"
-                                exit="closed"
-                                className="fixed top-0 left-0 h-screen w-full md:w-[400px] bg-gradient-to-br from-white via-gray-50 to-white dark:from-[#0a0a0a] dark:via-[#0f0f0f] dark:to-[#0a0a0a] z-[9999] shadow-2xl border-r border-gray-200 dark:border-white/10 flex flex-col overflow-hidden"
+                                initial={{ x: '-100%' }} animate={{ x: '0%' }} exit={{ x: '-100%' }}
+                                transition={{ type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.32 }}
                                 style={{
-                                    position: 'fixed',
-                                    maxHeight: '100vh',
-                                    willChange: 'transform',
-                                    backfaceVisibility: 'hidden',
-                                    WebkitFontSmoothing: 'antialiased'
+                                    position: 'fixed', top: 0, left: 0,
+                                    height: '100dvh', width: '100%', maxWidth: '340px',
+                                    zIndex: 9999, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                                    background: '#080808',
+                                    borderRight: '1px solid rgba(255,255,255,0.06)',
+                                    boxShadow: '8px 0 40px rgba(0,0,0,0.5)',
                                 }}
                             >
-                                {/* Simplified Background */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50 to-white dark:from-[#0a0a0a] dark:via-[#0f0f0f] dark:to-[#0a0a0a] z-[-1]" />
+                                {/* Drawer ambient glow */}
+                                <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '180px', height: '180px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(239,68,68,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-                                {/* Close Button - Fixed Top Right */}
-                                <motion.button
-                                    onClick={() => setIsOpen(false)}
-                                    initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                                    exit={{ opacity: 0, scale: 0, rotate: 180 }}
-                                    transition={{ delay: 0.1 }}
-                                    className="absolute top-6 right-6 w-11 h-11 flex items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/10 dark:to-white/5 text-gray-900 dark:text-white hover:from-red-500 hover:to-red-600 hover:text-white transition-all duration-300 group shadow-lg z-[100]"
-                                    whileHover={{ scale: 1.15, rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    aria-label="Close Menu"
-                                >
-                                    <X className="w-5 h-5 transition-transform duration-300" />
-                                    <motion.div
-                                        className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                {/* Drawer header */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ position: 'relative', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,38,38,0.35) 0%, transparent 70%)' }} />
+                                            <Zap style={{ width: '18px', height: '18px', color: '#ef4444', fill: '#ef4444', filter: 'drop-shadow(0 0 6px rgba(220,38,38,0.8))', position: 'relative', zIndex: 1 }} />
+                                        </div>
+                                        <span style={{ fontSize: '16px', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>ElevateX</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsOpen(false)}
                                         style={{
-                                            boxShadow: '0 0 40px rgba(239, 68, 68, 0.8)',
+                                            width: '32px', height: '32px', borderRadius: '10px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+                                            color: 'rgba(255,255,255,0.4)', cursor: 'pointer', transition: 'all 0.2s',
                                         }}
-                                    />
-                                </motion.button>
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
+                                    >
+                                        <X style={{ width: '14px', height: '14px' }} />
+                                    </button>
+                                </div>
 
-                                {/* Content Container with Padding */}
-                                <div className="flex-1 flex flex-col px-6 pt-20 pb-6 gap-4 overflow-hidden" style={{ contain: 'layout style paint' }}>
-                                    {/* User Profile Section - MASSIVELY ENHANCED */}
+                                {/* User card */}
+                                <div style={{ padding: '16px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     {currentUser ? (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.2 }}
-                                            className="p-4 bg-gradient-to-br from-white to-gray-50 dark:from-white/10 dark:to-white/5 rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl relative overflow-hidden z-20"
-                                            whileHover={{ scale: 1.02 }}
-                                        >
-                                            {/* Holographic Shimmer Effect */}
-                                            <motion.div
-                                                className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-500"
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(251,146,60,0.15) 50%, rgba(236,72,153,0.15) 100%)',
-                                                    willChange: 'opacity'
-                                                }}
-                                            />
-
-                                            {/* Glow Aura - Optimized */}
-                                            <motion.div
-                                                className="absolute inset-0 rounded-3xl blur-2xl -z-10"
-                                                animate={{
-                                                    opacity: [0.2, 0.4, 0.2],
-                                                }}
-                                                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(168, 85, 247, 0.3))',
-                                                    willChange: 'opacity'
-                                                }}
-                                            />
-
-                                            {/* Clickable Avatar and Name */}
-                                            <Link
-                                                to="/profile"
-                                                onClick={() => setIsOpen(false)}
-                                                className="flex items-center gap-4 mb-4 group cursor-pointer relative"
+                                        <>
+                                            <Link to="/profile" onClick={() => setIsOpen(false)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px', textDecoration: 'none', padding: '8px', borderRadius: '14px', transition: 'background 0.2s' }}
+                                                className="group"
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                             >
-                                                <div className="relative">
-                                                    <motion.img
-                                                        src={userProfile?.avatar}
-                                                        alt="avatar"
-                                                        className="w-14 h-14 rounded-full border-2 border-gradient-to-r from-pink-500 to-purple-500 group-hover:border-red-400 transition-colors relative z-10"
-                                                        whileHover={{ scale: 1.1, rotate: 5 }}
-                                                    />
+                                                <img src={userProfile?.avatar} alt="avatar" style={{ width: '44px', height: '44px', borderRadius: '14px', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ fontWeight: 700, fontSize: '14px', color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userProfile?.name || 'User'}</p>
+                                                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userProfile?.email || ''}</p>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <motion.h3
-                                                        className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 group-hover:from-red-500 group-hover:to-purple-500 transition-all"
-                                                        whileHover={{ x: 5 }}
-                                                    >
-                                                        {userProfile?.name || 'User'}
-                                                    </motion.h3>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{userProfile?.email || ''}</p>
+                                                <div style={{ color: 'rgba(239,68,68,0.5)', opacity: 0, transition: 'opacity 0.2s' }} className="group-hover:opacity-100">
+                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                                 </div>
-                                                {/* Arrow Icon */}
-                                                <motion.div
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    animate={{ x: [0, 5, 0] }}
-                                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                                >
-                                                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </motion.div>
                                             </Link>
 
-                                            {/* Enhanced Coins and XP */}
-                                            <div className="flex gap-2 relative z-10">
-                                                <Link
-                                                    to="/wallet"
-                                                    onClick={() => setIsOpen(false)}
-                                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 text-yellow-600 dark:text-yellow-500 rounded-xl font-bold text-sm hover:from-yellow-500/30 hover:to-orange-500/30 transition-all shadow-md relative overflow-hidden group"
-                                                >
-                                                    <motion.div
-                                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            {/* Stats */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
+                                                {[
+                                                    { label: 'Coins', value: userProfile?.coins || 0, to: '/wallet' },
+                                                    { label: 'XP', value: userProfile?.xp || 0, to: '/leaderboard' },
+                                                    { label: 'Level', value: Math.floor((userProfile?.xp || 0) / 500) + 1, to: '/leaderboard' },
+                                                ].map(({ label, value, to }) => (
+                                                    <Link key={label} to={to} onClick={() => setIsOpen(false)}
                                                         style={{
-                                                            background: 'linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.3), transparent)'
+                                                            display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 4px',
+                                                            borderRadius: '12px', textDecoration: 'none', transition: 'background 0.2s',
+                                                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
                                                         }}
-                                                        animate={{ x: ['-100%', '100%'] }}
-                                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                                    />
-                                                    <Coins className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                                    {userProfile?.coins || 0}
-                                                </Link>
-                                                <Link
-                                                    to="/leaderboard"
-                                                    onClick={() => setIsOpen(false)}
-                                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-400 rounded-xl font-bold text-sm hover:from-purple-500/30 hover:to-pink-500/30 transition-all shadow-md relative overflow-hidden group"
-                                                >
-                                                    <motion.div
-                                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        style={{
-                                                            background: 'linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.3), transparent)'
-                                                        }}
-                                                        animate={{ x: ['-100%', '100%'] }}
-                                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                                    />
-                                                    <Trophy className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                                    {userProfile?.xp || 0} XP
-                                                </Link>
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                                    >
+                                                        <span style={{ fontSize: '15px', fontWeight: 900, color: '#fff' }}>{value.toLocaleString()}</span>
+                                                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px', fontWeight: 600, letterSpacing: '0.04em' }}>{label}</span>
+                                                    </Link>
+                                                ))}
                                             </div>
-                                            <div className="flex gap-2 relative z-10 mt-2">
-                                                <div className="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-100 dark:bg-white/5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400">
-                                                    Level {Math.floor((userProfile?.xp || 0) / 500) + 1}
-                                                </div>
-                                            </div>
-                                        </motion.div>
+                                        </>
                                     ) : (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.2 }}
-                                            className="z-20"
+                                        <button
+                                            onClick={() => { setIsOpen(false); setShowAuthModal(true); }}
+                                            style={{
+                                                width: '100%', padding: '14px',
+                                                borderRadius: '14px', border: '1px solid rgba(239,68,68,0.25)',
+                                                background: 'rgba(239,68,68,0.1)',
+                                                color: '#ef4444', fontSize: '14px', fontWeight: 700,
+                                                cursor: 'pointer', transition: 'all 0.2s',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
                                         >
-                                            <motion.button
-                                                onClick={() => {
-                                                    setIsOpen(false);
-                                                    setShowAuthModal(true);
-                                                }}
-                                                className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all relative overflow-hidden group"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <motion.div
-                                                    className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                />
-                                                <span className="relative z-10">Login / Sign Up</span>
-                                            </motion.button>
-                                        </motion.div>
+                                            Login / Sign Up
+                                        </button>
                                     )}
+                                </div>
 
-                                    {/* Navigation Links - CRAZY ENHANCED */}
-                                    <div className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden relative z-20 custom-scrollbar pr-1">
-                                        <style>{`
-                                            .custom-scrollbar::-webkit-scrollbar {
-                                                width: 5px;
-                                            }
-                                            .custom-scrollbar::-webkit-scrollbar-track {
-                                                background: transparent;
-                                            }
-                                            .custom-scrollbar::-webkit-scrollbar-thumb {
-                                                background: linear-gradient(to bottom, #ec4899, #8b5cf6);
-                                                border-radius: 10px;
-                                            }
-                                            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                                                background: linear-gradient(to bottom, #f43f5e, #a78bfa);
-                                            }
-                                        `}</style>
-                                        {navLinks.map((link, i) => (
+                                {/* Nav links list */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px' }}>
+                                    {navLinks.map((link, i) => {
+                                        const active = isActive(link.path);
+                                        const hasBadge = link.path === '/activity' ? unreadCount : link.path === '/chat' ? unreadMessageCount : 0;
+                                        return (
                                             <motion.div
                                                 key={link.name}
-                                                custom={i}
-                                                variants={linkVariants}
-                                                whileHover={{ x: 10, scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                                initial={{ x: -16, opacity: 0 }}
+                                                animate={{ x: 0, opacity: 1 }}
+                                                transition={{ delay: i * 0.035, duration: 0.28 }}
                                             >
                                                 <Link
                                                     to={link.path}
                                                     onClick={() => setIsOpen(false)}
-                                                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all group relative overflow-hidden ${location.pathname === link.path
-                                                        ? 'bg-gradient-to-r from-red-500/20 to-purple-500/20 text-red-600 dark:text-red-400 shadow-lg'
-                                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-white/5 dark:hover:to-white/10 hover:text-gray-900 dark:hover:text-white'
-                                                        }`}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: '12px',
+                                                        padding: '10px 12px', borderRadius: '12px', marginBottom: '2px',
+                                                        textDecoration: 'none', transition: 'all 0.18s',
+                                                        background: active ? 'rgba(239,68,68,0.08)' : 'transparent',
+                                                        borderLeft: `2px solid ${active ? 'rgba(239,68,68,0.45)' : 'transparent'}`,
+                                                        paddingLeft: '14px',
+                                                    }}
+                                                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; }}
+                                                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    {/* Shine effect on hover */}
-                                                    <motion.div
-                                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        style={{
-                                                            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)'
-                                                        }}
-                                                        animate={{ x: ['-100%', '100%'] }}
-                                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                                    />
-
-                                                    {/* Icon Container */}
-                                                    <motion.div
-                                                        className={`p-3 rounded-xl transition-all duration-300 relative ${location.pathname === link.path
-                                                            ? 'bg-gradient-to-br from-red-500 to-purple-500 text-white scale-110 shadow-lg'
-                                                            : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/10 group-hover:from-red-500/20 group-hover:to-purple-500/20 group-hover:scale-110 group-hover:shadow-md'
-                                                            }`}
-                                                        whileHover={{ rotate: [0, -10, 10, 0] }}
-                                                        transition={{ duration: 0.5 }}
-                                                    >
-                                                        <link.icon className="w-5 h-5" />
-                                                        {/* Pulse effect for active */}
-                                                        {location.pathname === link.path && (
-                                                            <motion.div
-                                                                className="absolute inset-0 rounded-xl bg-red-500"
-                                                                animate={{
-                                                                    scale: [1, 1.3, 1],
-                                                                    opacity: [0.5, 0, 0.5],
-                                                                }}
-                                                                transition={{ duration: 2, repeat: Infinity }}
-                                                            />
-                                                        )}
-                                                    </motion.div>
-
-                                                    <span className="font-bold text-lg flex-1">{link.name}</span>
-
-                                                    {/* Active indicator */}
-                                                    {location.pathname === link.path && (
-                                                        <motion.div
-                                                            layoutId="activeDot"
-                                                            className="w-2 h-2 bg-gradient-to-r from-red-500 to-purple-500 rounded-full shadow-[0_0_12px_rgba(239,68,68,0.8)]"
-                                                            animate={{
-                                                                scale: [1, 1.3, 1],
-                                                            }}
-                                                            transition={{ duration: 2, repeat: Infinity }}
-                                                        />
+                                                    <div style={{
+                                                        width: '32px', height: '32px', borderRadius: '10px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        flexShrink: 0, transition: 'all 0.18s',
+                                                        background: active ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)',
+                                                        color: active ? '#ef4444' : 'rgba(255,255,255,0.55)',
+                                                    }}>
+                                                        <link.icon style={{ width: '15px', height: '15px' }} />
+                                                    </div>
+                                                    <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)', transition: 'color 0.18s' }}>
+                                                        {link.name}
+                                                    </span>
+                                                    {hasBadge > 0 && (
+                                                        <span style={{
+                                                            fontSize: '9px', fontWeight: 900,
+                                                            padding: '2px 6px', borderRadius: '6px',
+                                                            color: '#fff', background: 'rgba(239,68,68,0.35)',
+                                                        }}>
+                                                            {hasBadge > 9 ? '9+' : hasBadge}
+                                                        </span>
                                                     )}
                                                 </Link>
                                             </motion.div>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
+                                </div>
 
-                                    {/* Footer Actions - Enhanced */}
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.5 }}
-                                        className="pt-4 border-t border-gray-200 dark:border-white/10 relative z-20"
-                                    >
-                                        {currentUser && (
-                                            <motion.button
-                                                onClick={() => {
-                                                    logout();
-                                                    setIsOpen(false);
-                                                }}
-                                                className="flex items-center gap-3 text-red-500 hover:text-red-600 transition-colors w-full p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 group relative overflow-hidden"
-                                                whileHover={{ x: 5 }}
-                                                whileTap={{ scale: 0.95 }}
-                                            >
-                                                <motion.div
-                                                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    style={{
-                                                        background: 'linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.1), transparent)'
-                                                    }}
-                                                    animate={{ x: ['-100%', '100%'] }}
-                                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                                />
-                                                <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                                <span className="font-medium">Logout</span>
-                                            </motion.button>
-                                        )}
-                                    </motion.div>
+                                {/* Drawer footer */}
+                                <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    {currentUser ? (
+                                        <button
+                                            onClick={() => { logout(); setIsOpen(false); }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '10px',
+                                                width: '100%', padding: '11px 14px', borderRadius: '12px',
+                                                border: '1px solid rgba(252,165,165,0.1)',
+                                                background: 'rgba(252,165,165,0.04)',
+                                                color: 'rgba(252,165,165,0.55)', fontSize: '13px', fontWeight: 600,
+                                                cursor: 'pointer', transition: 'all 0.2s',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(252,165,165,0.09)'; e.currentTarget.style.color = 'rgba(252,165,165,0.85)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(252,165,165,0.04)'; e.currentTarget.style.color = 'rgba(252,165,165,0.55)'; }}
+                                        >
+                                            <LogOut style={{ width: '15px', height: '15px' }} />
+                                            Sign Out
+                                        </button>
+                                    ) : (
+                                        <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.25)', fontWeight: 500 }}>
+                                            © {new Date().getFullYear()} ElevateX
+                                        </p>
+                                    )}
                                 </div>
                             </motion.div>
                         </>

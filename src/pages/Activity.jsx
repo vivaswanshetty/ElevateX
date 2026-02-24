@@ -1,170 +1,282 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, UserPlus, CheckCircle, Bell, BellOff, Briefcase } from 'lucide-react';
+import {
+    Heart, MessageCircle, UserPlus, CheckCircle, Bell, BellOff, Briefcase,
+    Trash2, MailCheck, ChevronRight, Clock, Inbox, Users
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
-
 import UserProfileModal from '../components/UserProfileModal';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import AuthModal from '../components/AuthModal';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const formatTimeAgo = (date) => {
+    const s = Math.floor((Date.now() - new Date(date)) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const TYPE_CONFIG = {
+    follow: { icon: UserPlus, color: 'rgba(96,165,250,0.7)', label: 'Follow' },
+    follow_accept: { icon: UserPlus, color: 'rgba(96,165,250,0.7)', label: 'Follow' },
+    follow_request: { icon: UserPlus, color: 'rgba(251,146,60,0.7)', label: 'Request' },
+    like: { icon: Heart, color: 'rgba(251,113,133,0.7)', label: 'Like' },
+    comment: { icon: MessageCircle, color: 'rgba(74,222,128,0.7)', label: 'Comment' },
+    task_complete: { icon: CheckCircle, color: 'rgba(250,204,21,0.7)', label: 'Task' },
+    task_assign: { icon: CheckCircle, color: 'rgba(250,204,21,0.7)', label: 'Task' },
+    task_apply: { icon: Briefcase, color: 'rgba(167,139,250,0.7)', label: 'Task' },
+};
+
+const getConfig = (type) => TYPE_CONFIG[type] || { icon: Bell, color: 'rgba(156,163,175,0.6)', label: 'Activity' };
+
+const getActivityMessage = (type) => {
+    switch (type) {
+        case 'follow': return 'started following you';
+        case 'follow_request': return 'requested to follow you';
+        case 'follow_accept': return 'accepted your follow request';
+        case 'like': return 'liked your post';
+        case 'comment': return 'commented on your post';
+        case 'task_complete': return 'completed your task';
+        case 'task_assign': return 'assigned you to a task';
+        case 'task_apply': return 'applied for your task';
+        default: return 'interacted with you';
+    }
+};
+
+// ─── Activity Card ────────────────────────────────────────────────────────────
+const ActivityCard = ({ activity, processingRequests, onAccept, onReject, onViewProfile, onViewTask, onViewPost, onMarkRead }) => {
+    const cfg = getConfig(activity.type);
+    const Icon = cfg.icon;
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -40, scale: 0.97 }}
+            onClick={() => {
+                if (!activity.read) onMarkRead(activity._id);
+                if (activity.post) onViewPost(activity.post._id || activity.post);
+                else if (activity.task) onViewTask(activity.task._id || activity.task);
+                else onViewProfile(activity.actor?._id, activity.actor);
+            }}
+            className="relative group cursor-pointer transition-all duration-200"
+            style={{
+                background: activity.read ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                border: activity.read ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(251,146,60,0.2)',
+                borderRadius: '16px',
+                overflow: 'hidden',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = activity.read ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'; }}
+        >
+            {/* Unread accent */}
+            {!activity.read && (
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-2xl" style={{ background: 'rgba(251,146,60,0.6)' }} />
+            )}
+
+            <div className="flex items-start gap-4 p-4">
+                {/* Avatar + badge */}
+                <div className="relative flex-shrink-0">
+                    <div className="w-11 h-11 rounded-2xl overflow-hidden" style={{ border: `1px solid ${cfg.color}30` }}>
+                        {activity.actor?.avatar ? (
+                            <img
+                                src={activity.actor.avatar}
+                                alt={activity.actor.name}
+                                className="w-full h-full object-cover"
+                                onClick={e => { e.stopPropagation(); onViewProfile(activity.actor?._id, activity.actor); }}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ background: `${cfg.color}15` }}>
+                                <Icon className="w-5 h-5" style={{ color: cfg.color }} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#050505', border: `1px solid ${cfg.color}40` }}>
+                        <Icon className="w-2.5 h-2.5" style={{ color: cfg.color }} />
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                                className="font-bold text-white text-sm capitalize transition-colors"
+                                style={{ cursor: 'pointer' }}
+                                onClick={e => { e.stopPropagation(); onViewProfile(activity.actor?._id, activity.actor); }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(251,146,60,0.8)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'white'; }}
+                            >
+                                {activity.actor?.name || 'Someone'}
+                            </span>
+                            <span className="text-sm font-light" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                {getActivityMessage(activity.type)}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            {!activity.read && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'rgba(251,146,60,0.8)' }} />}
+                            <span className="text-[11px] flex items-center gap-1 font-light" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                                <Clock className="w-3 h-3" />
+                                {formatTimeAgo(activity.createdAt)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {activity.comment && (
+                        <div className="mt-2 px-3 py-2 rounded-xl text-sm italic line-clamp-2 font-light" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }}>
+                            "{activity.comment}"
+                        </div>
+                    )}
+
+                    {activity.post && (
+                        <button
+                            onClick={e => { e.stopPropagation(); onViewPost(activity.post._id || activity.post); }}
+                            className="mt-2 text-xs font-semibold flex items-center gap-1 transition-all"
+                            style={{ color: 'rgba(251,146,60,0.6)' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(251,146,60,0.9)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(251,146,60,0.6)'; }}
+                        >
+                            View post <ChevronRight className="w-3 h-3" />
+                        </button>
+                    )}
+
+                    {activity.type === 'follow_request' && (
+                        <div className="flex gap-2 mt-3" onClick={e => e.stopPropagation()}>
+                            {processingRequests[activity.actor?._id] === 'accepted' ? (
+                                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold" style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: 'rgba(74,222,128,0.7)' }}>✓ Accepted</span>
+                            ) : processingRequests[activity.actor?._id] === 'rejected' ? (
+                                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.60)' }}>Rejected</span>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => onAccept(activity.actor?._id)}
+                                        className="px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all"
+                                        style={{ background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.3)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.25)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.15)'; }}
+                                    >
+                                        Accept
+                                    </button>
+                                    <button
+                                        onClick={() => onReject(activity.actor?._id)}
+                                        className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
+                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                                    >
+                                        Decline
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1 transition-colors" style={{ color: 'rgba(255,255,255,0.1)' }} />
+            </div>
+        </motion.div>
+    );
+};
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const Activity = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all'); // all, unread, read
+    const [filter, setFilter] = useState('all');
     const [followRequests, setFollowRequests] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
     const [selectedTaskId, setSelectedTaskId] = useState(null);
     const [toast, setToast] = useState(null);
-
-    const [processingRequests, setProcessingRequests] = useState({});  // Track accepted/rejected states
+    const [processingRequests, setProcessingRequests] = useState({});
     const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     useEffect(() => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
+        if (!user) { setLoading(false); return; }
         fetchActivities();
-        if (user.followRequests) {
-            setFollowRequests(user.followRequests);
-        }
-
-        // Check if we need to restore profile modal
+        if (user.followRequests) setFollowRequests(user.followRequests);
         if (location.state?.restoreUser) {
             setSelectedUser(location.state.restoreUser);
             window.history.replaceState({ ...window.history.state, restoreUser: null }, '');
         }
-    }, [user, navigate, location.state]);
+    }, [user, location.state]);
 
     const fetchActivities = async () => {
         try {
-            const response = await api.get('/activities');
-            setActivities(response.data);
-        } catch (error) {
-            console.error('Error fetching activities:', error);
-        } finally {
-            setLoading(false);
-        }
+            const res = await api.get('/activities');
+            setActivities(res.data);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
     };
 
     const handleViewProfile = async (userId, initialData = null) => {
-        if (initialData) {
-            setSelectedUser(initialData);
-        }
+        if (initialData) setSelectedUser(initialData);
         try {
-            const response = await api.get(`/users/${userId}`);
-            setSelectedUser(response.data);
-        } catch (error) {
-            console.error('Error fetching user profile:', error);
-            if (error.response?.status === 404) {
-                alert('This user has deleted their account');
-                if (initialData) setSelectedUser(null); // Close if not found
+            const res = await api.get(`/users/${userId}`);
+            setSelectedUser(res.data);
+        } catch (e) {
+            if (e.response?.status === 404) {
+                setToast({ type: 'error', message: 'This user has deleted their account' });
+                if (initialData) setSelectedUser(null);
             }
         }
     };
 
-    const markAsRead = async (activityId) => {
+    const markAsRead = async (id) => {
         try {
-            await api.put(`/activities/${activityId}/read`);
-            setActivities(prev => prev.map(a =>
-                a._id === activityId ? { ...a, read: true } : a
-            ));
-            // Trigger navbar update
+            await api.put(`/activities/${id}/read`);
+            setActivities(prev => prev.map(a => a._id === id ? { ...a, read: true } : a));
             window.dispatchEvent(new Event('activity-updated'));
-        } catch (error) {
-            console.error('Error marking activity as read:', error);
-        }
+        } catch (e) { console.error(e); }
     };
 
     const markAllAsRead = async () => {
         try {
             await api.put('/activities/read-all');
             setActivities(prev => prev.map(a => ({ ...a, read: true })));
-            // Trigger navbar update
             window.dispatchEvent(new Event('activity-updated'));
-        } catch (error) {
-            console.error('Error marking all as read:', error);
-        }
+            setToast({ type: 'success', message: 'All marked as read' });
+        } catch (e) { console.error(e); }
     };
-
-    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     const handleClearConfirm = async () => {
         try {
             await api.delete('/activities/clear-all');
             setActivities([]);
-            // Trigger navbar update
             window.dispatchEvent(new Event('activity-updated'));
-            setToast({
-                type: 'cleared',
-                title: 'History Cleared',
-                message: 'All activities have been permanently removed'
-            });
-        } catch (error) {
-            console.error('Error clearing activities:', error);
-            setToast({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to clear activities'
-            });
+            setToast({ type: 'success', message: 'Activity history cleared' });
+        } catch (e) {
+            setToast({ type: 'error', message: 'Failed to clear activities' });
         }
-    };
-
-    const clearAllActivities = () => {
-        setShowClearConfirm(true);
     };
 
     const handleAcceptRequest = async (requesterId) => {
         try {
             await api.put(`/users/${requesterId}/accept-request`);
-
-            // Update UI to show accepted state
             setProcessingRequests(prev => ({ ...prev, [requesterId]: 'accepted' }));
-
-            // Show success toast
-            setToast({
-                type: 'success',
-                title: 'Request Accepted!',
-                message: 'User started following you'
-            });
-
-            // Remove from lists after a short delay to allow user to see the "Accepted" state
+            setToast({ type: 'success', message: 'Follow request accepted!' });
             setTimeout(() => {
-                setFollowRequests(prev => prev.filter(req => req._id !== requesterId));
-                setActivities(prev => prev.filter(activity =>
-                    !(activity.type === 'follow_request' && activity.actor?._id === requesterId)
-                ));
+                setFollowRequests(prev => prev.filter(r => r._id !== requesterId));
+                setActivities(prev => prev.filter(a => !(a.type === 'follow_request' && a.actor?._id === requesterId)));
                 fetchActivities();
             }, 1500);
-
-        } catch (error) {
-            console.error('Error accepting request:', error);
-            console.error('Error response:', error.response?.data);
-            console.error('Error status:', error.response?.status);
-
-            if (error.response?.status === 404) {
-                setToast({
-                    type: 'error',
-                    title: 'User Not Found',
-                    message: error.response.data.message || 'This user has deleted their account'
-                });
-                setFollowRequests(prev => prev.filter(req => req._id !== requesterId));
-                setActivities(prev => prev.filter(activity =>
-                    !(activity.type === 'follow_request' && activity.actor?._id === requesterId)
-                ));
+        } catch (e) {
+            if (e.response?.status === 404) {
+                setToast({ type: 'error', message: 'User not found' });
+                setFollowRequests(prev => prev.filter(r => r._id !== requesterId));
             } else {
-                setToast({
-                    type: 'error',
-                    title: 'Error',
-                    message: error.response?.data?.message || 'Failed to accept request'
-                });
+                setToast({ type: 'error', message: 'Failed to accept request' });
             }
         }
     };
@@ -172,132 +284,41 @@ const Activity = () => {
     const handleRejectRequest = async (requesterId) => {
         try {
             await api.put(`/users/${requesterId}/reject-request`);
-
             setProcessingRequests(prev => ({ ...prev, [requesterId]: 'rejected' }));
-
-            // Show success toast
-            setToast({
-                type: 'info',
-                title: 'Request Rejected',
-                message: 'Follow request declined'
-            });
-
+            setToast({ type: 'info', message: 'Request declined' });
             setTimeout(() => {
-                setFollowRequests(prev => prev.filter(req => req._id !== requesterId));
-                setActivities(prev => prev.filter(activity =>
-                    !(activity.type === 'follow_request' && activity.actor?._id === requesterId)
-                ));
+                setFollowRequests(prev => prev.filter(r => r._id !== requesterId));
+                setActivities(prev => prev.filter(a => !(a.type === 'follow_request' && a.actor?._id === requesterId)));
             }, 1500);
-
-        } catch (error) {
-            console.error('Error rejecting request:', error);
-            setToast({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to reject request'
-            });
+        } catch (e) {
+            setToast({ type: 'error', message: 'Failed to reject request' });
         }
     };
 
-    // ... (keep existing helper functions) ...
-
-    const getActivityIcon = (type) => {
-        switch (type) {
-            case 'follow':
-            case 'follow_accept':
-                return <UserPlus className="w-5 h-5" />;
-            case 'follow_request':
-                return <UserPlus className="w-5 h-5 text-yellow-500" />;
-            case 'like':
-                return <Heart className="w-5 h-5 fill-red-500 text-red-500" />;
-            case 'comment':
-                return <MessageCircle className="w-5 h-5" />;
-            case 'task_complete':
-            case 'task_assign':
-                return <CheckCircle className="w-5 h-5" />;
-            case 'task_apply':
-                return <Briefcase className="w-5 h-5" />;
-            default:
-                return <Bell className="w-5 h-5" />;
-        }
-    };
-
-    const getActivityMessage = (activity) => {
-        const actorName = activity.actor?.name || 'Someone';
-
-        switch (activity.type) {
-            case 'follow':
-                return `started following you`;
-            case 'follow_request':
-                return `requested to follow you`;
-            case 'follow_accept':
-                return `accepted your follow request`;
-            case 'like':
-                return `liked your post`;
-            case 'comment':
-                return `commented on your post`;
-            case 'task_complete':
-                return `completed your task`;
-            case 'task_assign':
-                return `assigned you to a task`;
-            case 'task_apply':
-                return `applied for your task`;
-            default:
-                return 'interacted with you';
-        }
-    };
-
-    const getActivityColor = (type) => {
-        switch (type) {
-            case 'follow':
-            case 'follow_accept':
-                return 'from-blue-500 to-indigo-500';
-            case 'follow_request':
-                return 'from-yellow-500 to-orange-500';
-            case 'like':
-                return 'from-red-500 to-pink-500';
-            case 'comment':
-                return 'from-green-500 to-emerald-500';
-            case 'task_complete':
-            case 'task_assign':
-            case 'task_apply':
-                return 'from-yellow-500 to-orange-500';
-            default:
-                return 'from-gray-500 to-gray-600';
-        }
-    };
-
-    const formatTimeAgo = (date) => {
-        const seconds = Math.floor((new Date() - new Date(date)) / 1000);
-
-        if (seconds < 60) return 'just now';
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-        return new Date(date).toLocaleDateString();
-    };
-
-    const filteredActivities = activities.filter(activity => {
-        if (filter === 'unread') return !activity.read;
-        if (filter === 'read') return activity.read;
+    const filteredActivities = activities.filter(a => {
+        if (filter === 'unread') return !a.read;
+        if (filter === 'read') return a.read;
         return true;
     });
 
     const unreadCount = activities.filter(a => !a.read).length;
 
+    // ── Guest ──
     if (!user) {
         return (
-            <div className="pt-32 min-h-screen container mx-auto px-6 text-center">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                >
-                    <Bell className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
-                    <h2 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">Activity Feed</h2>
-                    <p className="text-gray-600 dark:text-gray-400 mb-8">Login to see your notifications and interactions!</p>
+            <div className="pt-32 min-h-screen flex items-center justify-center px-6" style={{ background: '#050505' }}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.15)' }}>
+                        <Bell className="w-9 h-9" style={{ color: 'rgba(251,146,60,0.6)' }} />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-3">Activity</h2>
+                    <p className="text-sm font-light mb-8" style={{ color: 'rgba(255,255,255,0.55)' }}>Login to see your notifications, follow requests, and interactions.</p>
                     <button
                         onClick={() => setShowAuthModal(true)}
-                        className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl hover:shadow-2xl transition-all"
+                        className="px-8 py-3.5 text-white font-bold rounded-xl text-sm transition-all"
+                        style={{ background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.3)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.25)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.15)'; }}
                     >
                         Login to View Activity
                     </button>
@@ -309,289 +330,187 @@ const Activity = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+            <div className="min-h-screen flex items-center justify-center" style={{ background: '#050505' }}>
+                <div className="w-6 h-6 border-2 border-white/10 border-t-white/40 rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto px-4 pt-24 pb-24 max-w-3xl">
-            {/* Header */}
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-3">
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-600 bg-clip-text text-transparent leading-tight pb-2">
-                        Activity
-                    </h1>
-                    {activities.length > 0 && (
-                        <div className="flex gap-2">
-                            {unreadCount > 0 && (
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={markAllAsRead}
-                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors text-sm"
-                                >
-                                    Mark all as read ({unreadCount})
-                                </motion.button>
-                            )}
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={clearAllActivities}
-                                className="px-4 py-2 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-sm"
-                            >
-                                Clear All
-                            </motion.button>
-                        </div>
-                    )}
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 text-lg">
-                    Stay updated with all your interactions
-                </p>
-            </div>
+        <div className="min-h-screen pb-24" style={{ background: '#050505' }}>
 
-            {/* Follow Requests Section */}
-            {followRequests.length > 0 && (
-                <div className="mb-8">
-                    <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                        <UserPlus className="w-5 h-5 text-yellow-500" />
-                        Follow Requests
-                    </h2>
-                    <div className="space-y-3">
-                        {followRequests.map((request) => (
-                            <motion.div
-                                key={request._id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-4 flex items-center justify-between"
-                            >
-                                <div
-                                    className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={() => handleViewProfile(request._id, request)}
-                                >
-                                    <img
-                                        src={request.avatar || `https://ui-avatars.com/api/?name=${request.name}`}
-                                        alt={request.name}
-                                        className="w-10 h-10 rounded-full object-cover"
-                                    />
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 dark:text-white hover:text-yellow-500 transition-colors">{request.name}</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">wants to follow you</p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {processingRequests[request._id] === 'accepted' ? (
-                                        <button disabled className="px-4 py-1.5 bg-green-500 text-white rounded-lg font-medium text-sm cursor-default">
-                                            Accepted
-                                        </button>
-                                    ) : processingRequests[request._id] === 'rejected' ? (
-                                        <button disabled className="px-4 py-1.5 bg-gray-400 text-white rounded-lg font-medium text-sm cursor-default">
-                                            Rejected
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={() => handleAcceptRequest(request._id)}
-                                                className="px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm transition-colors"
-                                            >
-                                                Accept
-                                            </button>
-                                            <button
-                                                onClick={() => handleRejectRequest(request._id)}
-                                                className="px-4 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm transition-colors"
-                                            >
-                                                Reject
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* ── Page Header ── */}
+            <div className="relative pt-32 pb-16 px-6 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(251,146,60,0.04) 0%, transparent 100%)' }} />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[480px] h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }} />
 
-            {/* Filter Tabs */}
-            <div className="mb-6 flex gap-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-2">
-                {['all', 'unread', 'read'].map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setFilter(tab)}
-                        className={`flex-1 px-4 py-2 rounded-lg font-medium capitalize transition-all ${filter === tab
-                            ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'
-                            }`}
-                    >
-                        {tab}
-                        {tab === 'unread' && unreadCount > 0 && (
-                            <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                                {unreadCount}
-                            </span>
-                        )}
-                    </button>
-                ))}
-            </div>
-
-            {/* Activities List */}
-            <div className="space-y-4">
-                <AnimatePresence mode="popLayout">
-                    {filteredActivities.length > 0 ? (
-                        filteredActivities.map((activity, index) => (
-                            <motion.div
-                                key={activity._id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ delay: index * 0.05 }}
-                                onClick={() => {
-                                    if (!activity.read) markAsRead(activity._id);
-                                    if (activity.post) {
-                                        navigate(`/post/${activity.post._id || activity.post}`);
-                                    } else if (activity.task) {
-                                        setSelectedTaskId(activity.task._id || activity.task);
-                                    } else {
-                                        handleViewProfile(activity.actor?._id, activity.actor);
-                                    }
-                                }}
-                                className={`relative bg-white dark:bg-white/5 border-2 rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.02] ${activity.read
-                                    ? 'border-gray-200 dark:border-white/10 opacity-75'
-                                    : 'border-yellow-500 dark:border-yellow-400 shadow-lg shadow-yellow-500/10'
-                                    }`}
-                            >
-                                {/* Unread Indicator */}
-                                {!activity.read && (
-                                    <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="absolute top-3 right-3 w-3 h-3 bg-yellow-500 rounded-full"
-                                    />
-                                )}
-
-                                <div className="flex gap-4">
-                                    {/* Icon/Avatar Section - Updated to match user request */}
-                                    <div className={`relative flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${getActivityColor(activity.type)} shadow-lg`}>
-                                        {/* Show User Avatar instead of Icon if available */}
-                                        {activity.actor?.avatar ? (
-                                            <img
-                                                src={activity.actor.avatar}
-                                                alt={activity.actor.name}
-                                                className="w-full h-full rounded-xl object-cover border-2 border-white/20"
-                                            />
-                                        ) : (
-                                            <div className="text-white">
-                                                {getActivityIcon(activity.type)}
-                                            </div>
-                                        )}
-
-                                        {/* Small badge for activity type */}
-                                        <div className="absolute -bottom-2 -right-2 bg-white dark:bg-gray-800 p-1 rounded-full shadow-md border border-gray-100 dark:border-gray-700">
-                                            {getActivityIcon(activity.type)}
-                                        </div>
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-2 mb-1">
-                                            <div
-                                                className="flex items-center gap-2 flex-wrap"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewProfile(activity.actor?._id, activity.actor);
-                                                }}
-                                            >
-                                                <span className="font-bold text-gray-900 dark:text-white capitalize text-lg">
-                                                    {activity.actor?.name || 'Someone'}
-                                                </span>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-auto">
-                                                    {formatTimeAgo(activity.createdAt)}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-gray-700 dark:text-gray-300 text-base">
-                                            {getActivityMessage(activity)}
-                                        </p>
-
-                                        {/* Follow Request Actions */}
-                                        {activity.type === 'follow_request' && (
-                                            <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                                                {processingRequests[activity.actor?._id] === 'accepted' ? (
-                                                    <button disabled className="px-4 py-1.5 bg-green-500 text-white rounded-lg font-medium text-sm cursor-default">
-                                                        Accepted
-                                                    </button>
-                                                ) : processingRequests[activity.actor?._id] === 'rejected' ? (
-                                                    <button disabled className="px-4 py-1.5 bg-gray-400 text-white rounded-lg font-medium text-sm cursor-default">
-                                                        Rejected
-                                                    </button>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleAcceptRequest(activity.actor?._id)}
-                                                            className="px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm transition-colors"
-                                                        >
-                                                            Accept
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRejectRequest(activity.actor?._id)}
-                                                            className="px-4 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm transition-colors"
-                                                        >
-                                                            Reject
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Activity Details */}
-                                        {activity.comment && (
-                                            <div className="mt-2 p-3 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
-                                                <p className="text-sm text-gray-700 dark:text-gray-300 italic">
-                                                    "{activity.comment}"
-                                                </p>
-                                            </div>
-                                        )}
-                                        {activity.post && (
-                                            <div
-                                                className="mt-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium hover:underline flex items-center gap-1"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    // If we had a single post view page, we'd go there.
-                                                    // For now, going to feed is the best option or we could implement a post modal.
-                                                    navigate(`/post/${activity.post._id || activity.post}`);
-                                                }}
-                                            >
-                                                View post →
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="text-center py-12"
-                        >
-                            <div className="bg-gray-100 dark:bg-white/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <BellOff className="w-8 h-8 text-gray-400" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No activities yet</h3>
-                            <p className="text-gray-500 dark:text-gray-400">
-                                When you interact with others, updates will appear here.
+                <div className="max-w-3xl mx-auto">
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-semibold tracking-[0.25em] uppercase mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                                Notifications
                             </p>
+                            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
+                                Activity
+                            </h1>
+                            <p className="text-sm font-light mt-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                Stay updated with your interactions
+                            </p>
+                        </div>
+
+                        {activities.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                                {unreadCount > 0 && (
+                                    <button
+                                        onClick={markAllAsRead}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                        style={{ background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.2)', color: 'rgba(251,146,60,0.7)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.15)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.08)'; }}
+                                    >
+                                        <MailCheck className="w-3.5 h-3.5" />
+                                        Mark all read
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black text-white" style={{ background: 'rgba(251,146,60,0.4)' }}>{unreadCount}</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setShowClearConfirm(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(252,165,165,0.7)'; e.currentTarget.style.borderColor = 'rgba(252,165,165,0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" /> Clear all
+                                </button>
+                            </div>
+                        )}
+                    </motion.div>
+                </div>
+            </div>
+
+            <div className="max-w-3xl mx-auto px-6">
+
+                {/* ── Follow Requests ── */}
+                <AnimatePresence>
+                    {followRequests.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                            className="mb-8 p-5 rounded-2xl"
+                            style={{ background: 'rgba(251,146,60,0.04)', border: '1px solid rgba(251,146,60,0.15)' }}
+                        >
+                            <div className="flex items-center gap-2 mb-4">
+                                <Users className="w-4 h-4" style={{ color: 'rgba(251,146,60,0.6)' }} />
+                                <h2 className="font-bold text-white text-xs uppercase tracking-widest">Follow Requests</h2>
+                                <span className="ml-auto text-xs font-black px-2 py-0.5 rounded-full text-white" style={{ background: 'rgba(251,146,60,0.3)' }}>{followRequests.length}</span>
+                            </div>
+                            <div className="space-y-3">
+                                {followRequests.map(req => (
+                                    <motion.div
+                                        key={req._id}
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
+                                        className="flex items-center gap-3 p-3 rounded-xl"
+                                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                                    >
+                                        <img
+                                            src={req.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(req.name)}`}
+                                            className="w-10 h-10 rounded-xl object-cover cursor-pointer"
+                                            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                                            alt={req.name}
+                                            onClick={() => handleViewProfile(req._id, req)}
+                                        />
+                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleViewProfile(req._id, req)}>
+                                            <p className="font-bold text-white text-sm capitalize truncate">{req.name}</p>
+                                            <p className="text-xs font-light" style={{ color: 'rgba(255,255,255,0.55)' }}>wants to follow you</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {processingRequests[req._id] === 'accepted' ? (
+                                                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold" style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: 'rgba(74,222,128,0.7)' }}>✓ Accepted</span>
+                                            ) : processingRequests[req._id] === 'rejected' ? (
+                                                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.60)' }}>Rejected</span>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => handleAcceptRequest(req._id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all" style={{ background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.3)' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.25)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,146,60,0.15)'; }}>Accept</button>
+                                                    <button onClick={() => handleRejectRequest(req._id)} className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}>Decline</button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* ── Filter Tabs ── */}
+                <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {[
+                        { id: 'all', label: 'All', count: activities.length },
+                        { id: 'unread', label: 'Unread', count: unreadCount },
+                        { id: 'read', label: 'Read', count: activities.length - unreadCount },
+                    ].map(({ id, label, count }) => (
+                        <button
+                            key={id}
+                            onClick={() => setFilter(id)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all"
+                            style={{
+                                background: filter === id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                color: filter === id ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)',
+                            }}
+                        >
+                            {label}
+                            {count > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black" style={{
+                                    background: filter === id && id === 'unread' ? 'rgba(251,146,60,0.4)' : 'rgba(255,255,255,0.06)',
+                                    color: filter === id && id === 'unread' ? 'white' : 'rgba(255,255,255,0.5)',
+                                }}>
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ── Activity List ── */}
+                <div className="space-y-2">
+                    <AnimatePresence mode="popLayout">
+                        {filteredActivities.length > 0 ? (
+                            filteredActivities.map((activity) => (
+                                <ActivityCard
+                                    key={activity._id}
+                                    activity={activity}
+                                    processingRequests={processingRequests}
+                                    onAccept={handleAcceptRequest}
+                                    onReject={handleRejectRequest}
+                                    onViewProfile={handleViewProfile}
+                                    onViewTask={id => setSelectedTaskId(id)}
+                                    onViewPost={id => navigate(`/post/${id}`)}
+                                    onMarkRead={markAsRead}
+                                />
+                            ))
+                        ) : (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-24">
+                                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    {filter === 'unread' ? <MailCheck className="w-8 h-8" style={{ color: 'rgba(74,222,128,0.4)' }} /> :
+                                        filter === 'read' ? <Inbox className="w-8 h-8" style={{ color: 'rgba(255,255,255,0.50)' }} /> :
+                                            <BellOff className="w-8 h-8" style={{ color: 'rgba(255,255,255,0.50)' }} />}
+                                </div>
+                                <h3 className="text-lg font-black text-white mb-2">
+                                    {filter === 'unread' ? 'All caught up!' : filter === 'read' ? 'No read notifications' : 'No activity yet'}
+                                </h3>
+                                <p className="text-sm font-light max-w-xs mx-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                    {filter === 'unread' ? 'You have no unread notifications right now.' :
+                                        filter === 'read' ? "Notifications you've read will appear here." :
+                                            'When you interact with others, updates will appear here.'}
+                                </p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
-            <UserProfileModal
-                user={selectedUser}
-                onClose={() => setSelectedUser(null)}
-            />
-
+            {/* ── Modals ── */}
+            <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+            <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
             <ConfirmModal
                 isOpen={showClearConfirm}
                 onClose={() => setShowClearConfirm(false)}
@@ -601,12 +520,6 @@ const Activity = () => {
                 confirmText="Yes, Clear All"
                 isDestructive={true}
             />
-
-            <TaskDetailModal
-                taskId={selectedTaskId}
-                onClose={() => setSelectedTaskId(null)}
-            />
-
             <Toast toast={toast} onClose={() => setToast(null)} />
         </div>
     );

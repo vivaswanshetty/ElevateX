@@ -25,9 +25,15 @@
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 80px;
+    scroll-padding-bottom: 92px;
     /* Ultra-smooth scrolling */
     overflow-y: scroll;
     overflow-x: hidden;
+  }
+
+  /* Reserve space at bottom for bottom-dock (56px) + ticker (36px) = 92px */
+  main {
+    padding-bottom: 92px;
   }
 
   /* GPU Acceleration - Use sparingly to avoid memory bloat */
@@ -59,6 +65,21 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+
+  /* ── Global muted text legibility ─────────────────────────────────────────
+     The dark theme uses rgba(255,255,255,0.2–0.35) for subtexts which is
+     too dim on #050505. These CSS custom properties lift those values to a
+     readable level site-wide without touching individual components.        */
+  :root {
+    --muted-lo: rgba(255, 255, 255, 0.50);
+    /* was 0.20 */
+    --muted-mid: rgba(255, 255, 255, 0.60);
+    /* was 0.30 */
+    --muted-hi: rgba(255, 255, 255, 0.65);
+    /* was 0.35–0.40 */
+    --muted-label: rgba(255, 255, 255, 0.45);
+    /* was 0.25 — section labels */
   }
 }
 
@@ -295,6 +316,24 @@
 
   .animate-slideUp {
     animation: slideUp 0.5s ease-out;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pulse {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.4;
+    }
   }
 
   @keyframes slideUp {

@@ -83,7 +83,10 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
             id={`post-${post._id}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-6 transition-all duration-300"
+            className="rounded-2xl p-6 transition-all duration-300 relative overflow-hidden group"
+            style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
         >
             {/* Post Header */}
             <div className="flex items-start justify-between mb-4">
@@ -91,7 +94,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                     <img
                         src={post.author?.avatar || `https://ui-avatars.com/api/?name=${post.author?.name}`}
                         alt={post.author?.name}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-white/10 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
+                        className="w-12 h-12 rounded-full object-cover border border-white/10 cursor-pointer hover:ring-2 hover:ring-red-500 transition-all"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (post.author) setSelectedUser(post.author);
@@ -99,7 +102,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                     />
                     <div>
                         <h3
-                            className="font-semibold text-black dark:text-white capitalize cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                            className="font-bold text-white capitalize cursor-pointer hover:text-red-500 transition-colors"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (post.author) setSelectedUser(post.author);
@@ -107,7 +110,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                         >
                             {post.author?.name}
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-gray-500">
                             {formatTimeAgo(post.createdAt)}
                         </p>
                     </div>
@@ -115,7 +118,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                 {currentUser && post.author?._id === currentUser._id && (
                     <button
                         onClick={handleDelete}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        className="text-gray-500 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-white/5"
                     >
                         <Trash2 className="w-5 h-5" />
                     </button>
@@ -123,7 +126,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
             </div>
 
             {/* Post Content */}
-            <p className="text-black dark:text-white mb-4 whitespace-pre-wrap">
+            <p className="text-gray-100 mb-4 whitespace-pre-wrap leading-relaxed">
                 {post.content}
             </p>
 
@@ -132,24 +135,24 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                 <img
                     src={post.image}
                     alt="Post"
-                    className="w-full rounded-xl mb-4 max-h-96 object-cover"
+                    className="w-full rounded-xl mb-4 max-h-96 object-cover border border-white/5"
                 />
             )}
 
             {/* Post Actions */}
-            <div className="flex items-center gap-6 py-3 border-t border-b border-gray-200 dark:border-white/10 mb-4">
+            <div className="flex items-center gap-6 py-3 border-t border-b border-white/5 mb-4">
                 <button
                     onClick={handleLike}
                     disabled={!currentUser}
                     className={`flex items-center gap-2 transition-colors ${currentUser && post.likes?.includes(currentUser._id)
                         ? 'text-red-500'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-red-500'
+                        : 'text-gray-400 hover:text-red-500'
                         } ${!currentUser && 'opacity-50 cursor-not-allowed'}`}
                 >
                     <Heart className={`w-5 h-5 ${currentUser && post.likes?.includes(currentUser._id) ? 'fill-red-500' : ''}`} />
                     <span className="text-sm font-medium">{post.likes?.length || 0}</span>
                 </button>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2 text-gray-400">
                     <MessageCircle className="w-5 h-5" />
                     <span className="text-sm font-medium">{post.comments?.length || 0}</span>
                 </div>
@@ -157,19 +160,19 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
 
             {/* Comments */}
             {post.comments && post.comments.length > 0 && (
-                <div className="space-y-3 mb-4">
+                <div className="space-y-3 mb-5">
                     {post.comments.map((comment, index) => (
                         <div key={index} className="flex gap-3">
                             <img
                                 src={comment.user?.avatar || `https://ui-avatars.com/api/?name=${comment.user?.name}`}
                                 alt={comment.user?.name}
-                                className="w-8 h-8 rounded-full object-cover"
+                                className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
                             />
-                            <div className="flex-1 bg-gray-100 dark:bg-white/5 rounded-lg p-3">
-                                <p className="font-semibold text-sm text-black dark:text-white capitalize mb-1">
+                            <div className="flex-1 rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                <p className="font-semibold text-sm text-white capitalize mb-1">
                                     {comment.user?.name}
                                 </p>
-                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                <p className="text-sm text-gray-300">
                                     {comment.text}
                                 </p>
                             </div>
@@ -184,7 +187,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                     <img
                         src={currentUser.avatar || `https://ui-avatars.com/api/?name=${currentUser.name}`}
                         alt={currentUser.name}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
                     />
                     <div className="flex-1 flex gap-2">
                         <input
@@ -193,12 +196,12 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
                             onChange={(e) => setCommentText(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleComment()}
                             placeholder="Write a comment..."
-                            className="flex-1 px-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-black dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 outline-none"
+                            className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
                         />
                         <button
                             onClick={handleComment}
                             disabled={!commentText.trim()}
-                            className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Send className="w-5 h-5" />
                         </button>

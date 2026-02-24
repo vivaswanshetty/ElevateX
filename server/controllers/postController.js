@@ -7,15 +7,16 @@ const { createActivity } = require('./activityController');
 // @access  Private
 const createPost = async (req, res) => {
     try {
-        const { content, image } = req.body;
+        const { content } = req.body;
+        const image = req.file ? `/uploads/${req.file.filename}` : req.body.image;
 
-        if (!content) {
-            return res.status(400).json({ message: 'Content is required' });
+        if (!content && !image) {
+            return res.status(400).json({ message: 'Content or image is required' });
         }
 
         const post = await Post.create({
             author: req.user._id,
-            content,
+            content: content || ' ', // Allow image-only posts
             image: image || ''
         });
 
@@ -266,6 +267,25 @@ const getPostById = async (req, res) => {
     }
 };
 
+// @desc    Get users who liked a post
+// @route   GET /api/posts/:id/likes
+// @access  Public
+const getPostLikes = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id)
+            .populate('likes', 'name avatar xp');
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        res.json(post.likes);
+    } catch (error) {
+        console.error('Error fetching post likes:', error);
+        res.status(500).json({ message: 'Failed to fetch likes' });
+    }
+};
+
 module.exports = {
     createPost,
     getPosts,
@@ -276,5 +296,6 @@ module.exports = {
     deletePost,
     getUserInteractions,
     deleteComment,
-    getPostById
+    getPostById,
+    getPostLikes
 };

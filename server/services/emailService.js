@@ -1,23 +1,23 @@
 const nodemailer = require('nodemailer');
 
 // Create reusable transporter
+// Create reusable transporter
 const createTransporter = async () => {
-    // For development, use ethereal email (fake SMTP)
-    // For production, replace with your actual email service (Gmail, SendGrid, etc.)
-
-    if (process.env.NODE_ENV === 'production') {
-        // Production email configuration
+    // Check if we have real credentials provided in environment variables
+    if (process.env.EMAIL_PASSWORD && process.env.EMAIL_USER) {
+        // Use production-like or custom SMTP configuration
         return nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: process.env.EMAIL_PORT,
-            secure: true,
+            service: 'gmail', // Simplifies configuration for Gmail
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.EMAIL_PORT) || 587,
+            secure: false, // true for 465, false for other ports
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
             },
         });
     } else {
-        // Development: Use Ethereal
+        // Development: Use Ethereal if no real credentials provided
         let user = process.env.EMAIL_USER;
         let pass = process.env.EMAIL_PASSWORD;
 

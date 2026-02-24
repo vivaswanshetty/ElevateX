@@ -1,102 +1,202 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Coins, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { X, Coins, ArrowUpRight, ArrowDownLeft, Loader } from 'lucide-react';
+
+const QUICK_AMOUNTS = [10, 25, 50, 100, 200, 500];
 
 const TransactionModal = ({ isOpen, onClose, type, onConfirm, loading }) => {
     const [amount, setAmount] = useState('');
 
-    // Prevent body scroll when modal is open
     useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+    }, [isOpen]);
 
-        return () => {
-            document.body.style.overflow = '';
-        };
+    // Reset amount when modal opens
+    useEffect(() => {
+        if (isOpen) setAmount('');
     }, [isOpen]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!amount || isNaN(amount) || Number(amount) <= 0) return;
         onConfirm(Number(amount));
-        setAmount('');
     };
 
     const isDeposit = type === 'deposit';
+    const accent = isDeposit ? '#22c55e' : '#ef4444';
+    const accentBg = isDeposit ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    const accentBorder = isDeposit ? 'rgba(34,197,94,0.20)' : 'rgba(239,68,68,0.20)';
+    const accentGlow = isDeposit ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+
+    const isValid = amount && !isNaN(amount) && Number(amount) > 0;
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <>
+                    {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150]"
+                        className="fixed inset-0 z-[150]"
+                        style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
                     />
-                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+
+                    {/* Modal */}
+                    <div className="fixed inset-0 z-[151] flex items-center justify-center p-4">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.94, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-white dark:bg-[#111] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-200 dark:border-white/10"
+                            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                            className="w-full max-w-sm rounded-2xl overflow-hidden"
+                            style={{
+                                background: '#0a0a0a',
+                                border: `1px solid ${accentBorder}`,
+                                boxShadow: `0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset`,
+                            }}
+                            onClick={e => e.stopPropagation()}
                         >
-                            <div className={`p-6 bg-gradient-to-br ${isDeposit ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'}`}>
-                                <div className="flex items-center justify-between text-white mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                                            {isDeposit ? <ArrowDownLeft className="w-6 h-6" /> : <ArrowUpRight className="w-6 h-6" />}
-                                        </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold">{isDeposit ? 'Deposit Coins' : 'Withdraw Coins'}</h2>
-                                            <p className="text-white/80 text-sm">Enter amount to {isDeposit ? 'add' : 'withdraw'}</p>
-                                        </div>
+                            {/* Header */}
+                            <div className="px-6 pt-6 pb-5 flex items-start justify-between"
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div className="flex items-center gap-3.5">
+                                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                                        style={{ background: accentBg, border: `1px solid ${accentBorder}` }}>
+                                        {isDeposit
+                                            ? <ArrowDownLeft className="w-5 h-5" style={{ color: accent }} />
+                                            : <ArrowUpRight className="w-5 h-5" style={{ color: accent }} />
+                                        }
                                     </div>
-                                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors">
-                                        <X className="w-6 h-6" />
-                                    </button>
+                                    <div>
+                                        <h2 className="font-black text-white text-lg leading-tight">
+                                            {isDeposit ? 'Deposit Coins' : 'Withdraw Coins'}
+                                        </h2>
+                                        <p className="text-xs mt-0.5 font-light"
+                                            style={{ color: 'rgba(255,255,255,0.45)' }}>
+                                            {isDeposit ? 'Add coins to your wallet' : 'Withdraw coins from your wallet'}
+                                        </p>
+                                    </div>
                                 </div>
+                                <button
+                                    onClick={onClose}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl transition-colors flex-shrink-0"
+                                    style={{ color: 'rgba(255,255,255,0.40)' }}
+                                    onMouseEnter={e => {
+                                        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                                        e.currentTarget.style.color = 'rgba(255,255,255,0.80)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.currentTarget.style.background = 'transparent';
+                                        e.currentTarget.style.color = 'rgba(255,255,255,0.40)';
+                                    }}
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-6">
-                                <div className="mb-6">
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                                        Amount
+                            {/* Body */}
+                            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+
+                                {/* Amount input */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold uppercase tracking-widest mb-2.5"
+                                        style={{ color: 'rgba(255,255,255,0.45)' }}>
+                                        Amount (coins)
                                     </label>
                                     <div className="relative">
-                                        <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                                            <Coins className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                                        </div>
                                         <input
                                             type="number"
                                             value={amount}
-                                            onChange={(e) => setAmount(e.target.value)}
-                                            placeholder="0.00"
-                                            className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xl font-bold text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                            onChange={e => setAmount(e.target.value)}
+                                            placeholder="0"
                                             autoFocus
                                             min="1"
+                                            className="w-full pl-11 pr-4 py-3.5 rounded-xl text-xl font-black text-white placeholder-white/20 focus:outline-none transition-all appearance-none"
+                                            style={{
+                                                background: 'rgba(255,255,255,0.04)',
+                                                border: `1px solid ${amount && isValid ? accentBorder : 'rgba(255,255,255,0.08)'}`,
+                                                boxShadow: amount && isValid ? `0 0 0 3px ${accentGlow}` : 'none',
+                                            }}
+                                            onFocus={e => {
+                                                e.currentTarget.style.border = `1px solid ${accentBorder}`;
+                                                e.currentTarget.style.boxShadow = `0 0 0 3px ${accentGlow}`;
+                                            }}
+                                            onBlur={e => {
+                                                if (!isValid) {
+                                                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.08)';
+                                                    e.currentTarget.style.boxShadow = 'none';
+                                                }
+                                            }}
                                         />
                                     </div>
                                 </div>
 
+                                {/* Quick-select amounts */}
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-widest mb-2.5"
+                                        style={{ color: 'rgba(255,255,255,0.35)' }}>Quick select</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {QUICK_AMOUNTS.map(q => (
+                                            <button
+                                                key={q}
+                                                type="button"
+                                                onClick={() => setAmount(String(q))}
+                                                className="py-2 rounded-xl text-sm font-bold transition-all"
+                                                style={{
+                                                    background: Number(amount) === q ? accentBg : 'rgba(255,255,255,0.04)',
+                                                    border: `1px solid ${Number(amount) === q ? accentBorder : 'rgba(255,255,255,0.07)'}`,
+                                                    color: Number(amount) === q ? accent : 'rgba(255,255,255,0.60)',
+                                                }}
+                                                onMouseEnter={e => {
+                                                    if (Number(amount) !== q) {
+                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                                                        e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                                                    }
+                                                }}
+                                                onMouseLeave={e => {
+                                                    if (Number(amount) !== q) {
+                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                                        e.currentTarget.style.color = 'rgba(255,255,255,0.60)';
+                                                    }
+                                                }}
+                                            >
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Submit */}
                                 <button
                                     type="submit"
-                                    disabled={loading || !amount || Number(amount) <= 0}
-                                    className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2
-                                        ${isDeposit
-                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25'
-                                            : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-500/25'
-                                        }`}
+                                    disabled={loading || !isValid}
+                                    className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                                    style={{
+                                        background: isValid
+                                            ? (isDeposit
+                                                ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                                                : 'linear-gradient(135deg, #ef4444, #dc2626)')
+                                            : 'rgba(255,255,255,0.06)',
+                                        boxShadow: isValid ? `0 4px 20px ${accentGlow}` : 'none',
+                                    }}
                                 >
-                                    {loading ? (
-                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <>
-                                            {isDeposit ? 'Deposit Funds' : 'Withdraw Funds'}
+                                    {loading
+                                        ? <Loader className="w-4 h-4 animate-spin" />
+                                        : <>
+                                            {isDeposit
+                                                ? <ArrowDownLeft className="w-4 h-4" />
+                                                : <ArrowUpRight className="w-4 h-4" />
+                                            }
+                                            {isDeposit ? 'Deposit Coins' : 'Withdraw Coins'}
                                         </>
-                                    )}
+                                    }
                                 </button>
                             </form>
                         </motion.div>
