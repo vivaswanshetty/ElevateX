@@ -10,25 +10,26 @@ const contactRoutes = require('./routes/contactRoutes');
 const passwordResetRoutes = require('./routes/passwordResetRoutes');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/rateLimiter');
-const runMigrations = require('./scripts/migrateUsers');
+// const runMigrations = require('./scripts/migrateUsers');
 
 dotenv.config();
 
 // Connect to DB and run migrations
 connectDB().then(() => {
-    console.log('🔄 Running database migrations...');
-    runMigrations()
-        .then((result) => {
-            if (result.alreadyApplied) {
-                console.log('✅ All migrations up to date');
-            } else {
-                console.log(`✅ Migrations completed: ${result.updatedCount} users updated`);
-            }
-        })
-        .catch((error) => {
-            console.error('⚠️  Migration error:', error.message);
-            console.log('Server will continue running...');
-        });
+    console.log('✅ Database connected');
+    // Skip migrations for now
+    // runMigrations()
+    //     .then((result) => {
+    //         if (result.alreadyApplied) {
+    //             console.log('✅ All migrations up to date');
+    //         } else {
+    //             console.log(`✅ Migrations completed: ${result.updatedCount} users updated`);
+    //         }
+    //     })
+    //     .catch((error) => {
+    //         console.error('⚠️  Migration error:', error.message);
+    //         console.log('Server will continue running...');
+    //     });
 });
 
 const http = require('http');
@@ -50,28 +51,16 @@ app.set('trust proxy', 1);
 // }));
 
 // CORS configuration
-// CORS configuration
 const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-
-        // Allow localhost for development
-        if (origin.includes('localhost')) return callback(null, true);
-
-        // Allow any Vercel deployment
-        if (origin.endsWith('.vercel.app')) return callback(null, true);
-
-        // Allow explicit FRONTEND_URL if set
-        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
-            return callback(null, true);
-        }
-
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
-    },
+    origin: [
+        'https://elevatex-one.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000',
+    ],
     credentials: true,
     optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
 
@@ -105,10 +94,10 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/duels', require('./routes/duelRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
-app.use('/api/matches', require('./routes/matchRoutes'));
-app.use('/api/alchemy', require('./routes/alchemyRoutes'));
+// app.use('/api/matches', require('./routes/matchRoutes'));
+// app.use('/api/alchemy', require('./routes/alchemyRoutes'));
 app.use('/api/waitlist', require('./routes/waitlistRoutes'));
-app.use('/api/seasons', require('./routes/seasonRoutes'));
+// app.use('/api/seasons', require('./routes/seasonRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // Health check
@@ -141,7 +130,7 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📧 Email service: ${process.env.NODE_ENV === 'production' ? 'Production' : 'Development'}`);
 });
