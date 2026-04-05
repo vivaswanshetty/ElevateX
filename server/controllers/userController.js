@@ -47,6 +47,7 @@ const getProfile = async (req, res) => {
         res.json({
             _id: user._id,
             name: user.name,
+            username: user.username,
             email: user.email,
             avatar: user.avatar,
             bio: user.bio,
@@ -71,16 +72,49 @@ const getProfile = async (req, res) => {
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = async (req, res) => {
-    const user = await User.findById(req.user._id);
+    try {
+        const user = await User.findById(req.user._id);
 
-    if (user) {
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
         user.name = req.body.name || user.name;
         user.email = req.body.email || user.email;
-        user.bio = req.body.bio || user.bio;
-        user.avatar = req.body.avatar || user.avatar;
-        user.socials = req.body.socials || user.socials;
-        user.work = req.body.work || user.work;
-        user.education = req.body.education || user.education;
+        user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
+        
+        if (req.body.username) {
+            const existingUser = await User.findOne({ username: req.body.username });
+            if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+                return res.status(400).json({ message: 'Username is already taken' });
+            }
+            user.username = req.body.username;
+        }
+        
+        if (req.file) {
+            user.avatar = `/uploads/${req.file.filename}`;
+        } else if (req.body.avatar !== undefined) {
+            user.avatar = req.body.avatar;
+        }
+
+        // Parse JSON strings from FormData (multipart sends everything as strings)
+        const parseSafe = (val) => {
+            if (!val) return undefined;
+            if (typeof val === 'object') return val;
+            try { return JSON.parse(val); } catch { return val; }
+        };
+
+        const socials = parseSafe(req.body.socials);
+        if (socials) user.socials = socials;
+
+        const work = parseSafe(req.body.work);
+        if (work) user.work = work;
+
+        const education = parseSafe(req.body.education);
+        if (education) user.education = education;
+
+        const chatSettings = parseSafe(req.body.chatSettings);
+        if (chatSettings) user.chatSettings = chatSettings;
 
         if (req.body.coins !== undefined) {
             user.coins = req.body.coins;
@@ -93,8 +127,8 @@ const updateUserProfile = async (req, res) => {
             user.isPrivate = req.body.isPrivate;
         }
 
-        if (req.body.chatSettings) {
-            user.chatSettings = req.body.chatSettings;
+        if (req.body.pushToken !== undefined) {
+            user.pushToken = req.body.pushToken;
         }
 
         if (req.body.password) {
@@ -109,6 +143,7 @@ const updateUserProfile = async (req, res) => {
         res.json({
             _id: updatedUser._id,
             name: updatedUser.name,
+            username: updatedUser.username,
             email: updatedUser.email,
             avatar: updatedUser.avatar,
             bio: updatedUser.bio,
@@ -122,10 +157,11 @@ const updateUserProfile = async (req, res) => {
             essences: updatedUser.essences,
             relics: updatedUser.relics,
             chatSettings: updatedUser.chatSettings,
-            token: req.token, // Keep the same token
+            token: req.token,
         });
-    } else {
-        res.status(404).json({ message: 'User not found' });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ message: error.message || 'Server error updating profile' });
     }
 };
 
