@@ -73,7 +73,7 @@ const getProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
     try {
-        console.log('[updateProfile] req.body keys:', Object.keys(req.body));
+        console.log('[updateProfile] req.body:', req.body ? Object.keys(req.body) : 'empty');
         console.log('[updateProfile] req.file:', req.file ? req.file.filename : 'none');
         
         const user = await User.findById(req.user._id);
