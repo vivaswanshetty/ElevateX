@@ -73,11 +73,16 @@ const getProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
     try {
+        console.log('[updateProfile] req.body keys:', Object.keys(req.body));
+        console.log('[updateProfile] req.file:', req.file ? req.file.filename : 'none');
+        
         const user = await User.findById(req.user._id);
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
+
+        console.log('[updateProfile] Found user:', user._id);
 
         user.name = req.body.name || user.name;
         user.email = req.body.email || user.email;
@@ -135,7 +140,9 @@ const updateUserProfile = async (req, res) => {
             user.password = req.body.password;
         }
 
+        console.log('[updateProfile] About to save...');
         const updatedUser = await user.save();
+        console.log('[updateProfile] Save successful');
 
         // Populate followRequests for the response
         await updatedUser.populate('followRequests', 'name avatar');

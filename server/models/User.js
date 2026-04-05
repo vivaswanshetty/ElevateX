@@ -4,6 +4,7 @@ const crypto = require('crypto');
 
 const userSchema = mongoose.Schema({
     name: { type: String, required: true },
+    username: { type: String, unique: true, sparse: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     avatar: { type: String, default: '' },
@@ -89,7 +90,10 @@ const userSchema = mongoose.Schema({
     // Season system — reset each season; xp/coins above are lifetime
     seasonXP: { type: Number, default: 0 },
     seasonCoins: { type: Number, default: 0 },
-    seasonTasksCompleted: { type: Number, default: 0 }
+    seasonTasksCompleted: { type: Number, default: 0 },
+    
+    // Push Notifications
+    pushToken: { type: String, default: '' }
 }, {
     timestamps: true
 });
