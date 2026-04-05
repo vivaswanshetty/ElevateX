@@ -17,14 +17,20 @@ const getTransactions = async (req, res) => {
 // @access  Private
 const deposit = async (req, res) => {
     const { amount } = req.body;
+    const numAmount = Number(amount);
+
+    if (!Number.isFinite(numAmount) || numAmount < 1 || numAmount > 100000) {
+        return res.status(400).json({ message: 'Amount must be between 1 and 100,000' });
+    }
+
     const user = await User.findById(req.user._id);
-    user.coins += Number(amount);
+    user.coins += numAmount;
     await user.save();
 
     await Transaction.create({
         user: req.user._id,
         type: 'deposit',
-        amount,
+        amount: numAmount,
         description: 'Deposit'
     });
 
@@ -36,17 +42,23 @@ const deposit = async (req, res) => {
 // @access  Private
 const withdraw = async (req, res) => {
     const { amount } = req.body;
+    const numAmount = Number(amount);
+
+    if (!Number.isFinite(numAmount) || numAmount < 1 || numAmount > 100000) {
+        return res.status(400).json({ message: 'Amount must be between 1 and 100,000' });
+    }
+
     const user = await User.findById(req.user._id);
-    if (user.coins < Number(amount)) {
+    if (user.coins < numAmount) {
         return res.status(400).json({ message: 'Insufficient funds' });
     }
-    user.coins -= Number(amount);
+    user.coins -= numAmount;
     await user.save();
 
     await Transaction.create({
         user: req.user._id,
         type: 'withdraw',
-        amount,
+        amount: numAmount,
         description: 'Withdraw'
     });
 

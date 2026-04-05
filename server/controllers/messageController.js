@@ -1,26 +1,66 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { getIO } = require('../utils/socketUtils');
+const { sendPushNotification } = require('../utils/pushUtils');
 
 // @desc    Send a message
 // @route   POST /api/messages
 // @access  Private
 const sendMessage = async (req, res) => {
     try {
-        const { recipientId, content } = req.body;
+        const { recipientId, content, media } = req.body;
 
-        if (!content || !recipientId) {
-            return res.status(400).json({ message: 'Recipient and content are required' });
+        if (!recipientId) {
+            return res.status(400).json({ message: 'Recipient is required' });
+        }
+
+        // Allow messages with content or media, but not both required empty
+        if (!content && (!media || media.length === 0)) {
+            return res.status(400).json({ message: 'Message must contain text or media' });
+        }
+
+        if (req.user._id.toString() === recipientId) {
+            return res.status(400).json({ message: 'Cannot send message to yourself' });
+        }
+
+        // Check if sender follows the recipient (Instagram-like: you can only message people you follow)
+        const sender = await User.findById(req.user._id).select('following');
+        if (!sender.following.includes(recipientId)) {
+            return res.status(403).json({ message: 'You can only message people you follow' });
         }
 
         const message = await Message.create({
             sender: req.user._id,
             recipient: recipientId,
-            content
+            content: content || '',
+            media: media || []
         });
 
         const populatedMessage = await Message.findById(message._id)
             .populate('sender', 'name avatar')
-            .populate('recipient', 'name avatar');
+            .populate('recipient', 'name avatar pushToken');
+
+        // Emit socket event to the recipient
+        try {
+            const io = getIO();
+            io.to(recipientId).emit('new_message', populatedMessage);
+        } catch (socketErr) {
+            console.error('Socket emission failed:', socketErr);
+        }
+
+        // Send Push Notification
+        if (populatedMessage.recipient && populatedMessage.recipient.pushToken) {
+            try {
+                await sendPushNotification(
+                    populatedMessage.recipient.pushToken,
+                    `New message from ${populatedMessage.sender.name}`,
+                    content || '📎 Media',
+                    { type: 'message', senderId: populatedMessage.sender._id }
+                );
+            } catch (pushErr) {
+                console.error("Push notification failed:", pushErr);
+            }
+        }
 
         res.status(201).json(populatedMessage);
     } catch (error) {
@@ -35,6 +75,19 @@ const sendMessage = async (req, res) => {
 const getConversation = async (req, res) => {
     try {
         const { userId } = req.params;
+        console.log('🟦 getConversation called');
+        console.log('🟦 userId:', userId);
+        console.log('🟦 req.user:', req.user);
+
+        if (!req.user) {
+            console.error('❌ req.user is undefined - auth failed');
+            return res.status(401).json({ message: 'Not authenticated' });
+        }
+
+        if (!userId) {
+            console.error('❌ userId is missing from params');
+            return res.status(400).json({ message: 'User ID is required' });
+        }
 
         const messages = await Message.find({
             $or: [
@@ -46,16 +99,19 @@ const getConversation = async (req, res) => {
             .populate('sender', 'name avatar')
             .populate('recipient', 'name avatar');
 
+        console.log('✅ Found messages:', messages.length);
+
         // Mark messages as read
         await Message.updateMany(
             { sender: userId, recipient: req.user._id, read: false },
-            { read: true }
+            { read: true, readAt: new Date() }
         );
 
         res.json(messages);
     } catch (error) {
-        console.error('Error fetching conversation:', error);
-        res.status(500).json({ message: 'Failed to fetch conversation' });
+        console.error('❌ Error fetching conversation:', error.message);
+        console.error('❌ Error stack:', error.stack);
+        res.status(500).json({ message: 'Failed to fetch conversation', error: error.message });
     }
 };
 
@@ -218,17 +274,29 @@ const reactToMessage = async (req, res) => {
 
         // Check if user already reacted with this emoji
         const existingReactionIndex = message.reactions.findIndex(
-            r => r.user.toString() === req.user._id.toString() && r.emoji === emoji
+            r => r.emoji === emoji
         );
 
         if (existingReactionIndex !== -1) {
-            // Remove reaction if already exists (toggle)
-            message.reactions.splice(existingReactionIndex, 1);
+            // Check if user is in the users array
+            const userIndex = message.reactions[existingReactionIndex].users.indexOf(req.user._id);
+            
+            if (userIndex > -1) {
+                // Remove user from the reaction
+                message.reactions[existingReactionIndex].users.splice(userIndex, 1);
+                // If no more users for this reaction, remove the reaction entry
+                if (message.reactions[existingReactionIndex].users.length === 0) {
+                    message.reactions.splice(existingReactionIndex, 1);
+                }
+            } else {
+                // Add user to existing reaction
+                message.reactions[existingReactionIndex].users.push(req.user._id);
+            }
         } else {
-            // Add new reaction
+            // Create new reaction with this emoji containing current user
             message.reactions.push({
                 emoji,
-                user: req.user._id
+                users: [req.user._id]
             });
         }
 
@@ -236,13 +304,87 @@ const reactToMessage = async (req, res) => {
 
         const updatedMessage = await Message.findById(messageId)
             .populate('sender', 'name avatar')
-            .populate('recipient', 'name avatar')
-            .populate('reactions.user', 'name');
+            .populate('recipient', 'name avatar');
 
         res.json(updatedMessage);
     } catch (error) {
         console.error('Error reacting to message:', error);
         res.status(500).json({ message: 'Failed to react to message' });
+    }
+};
+
+// @desc    Mark a message as read
+// @route   PUT /api/messages/:messageId/read
+// @access  Private
+const markAsRead = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+
+        const message = await Message.findById(messageId);
+
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        // Only the recipient can mark a message as read
+        if (message.recipient.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to mark this message as read' });
+        }
+
+        // Mark as read
+        message.read = true;
+        message.readAt = new Date();
+        await message.save();
+
+        const updatedMessage = await Message.findById(messageId)
+            .populate('sender', 'name avatar')
+            .populate('recipient', 'name avatar');
+
+        res.json(updatedMessage);
+    } catch (error) {
+        console.error('Error marking message as read:', error);
+        res.status(500).json({ message: 'Failed to mark message as read' });
+    }
+};
+
+
+// @desc    Upload media file
+// @route   POST /api/messages/upload
+// @access  Private
+const uploadMedia = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+        if (req.file.size > MAX_FILE_SIZE) {
+            return res.status(400).json({ message: 'File size exceeds 200MB limit' });
+        }
+
+        // Determine media type from MIME type
+        let mediaType = 'document';
+        if (req.file.mimetype.startsWith('image/')) {
+            mediaType = 'image';
+        } else if (req.file.mimetype.startsWith('video/')) {
+            mediaType = 'video';
+        } else if (req.file.mimetype.startsWith('audio/')) {
+            mediaType = 'audio';
+        }
+
+        // File is stored by multer middleware, construct the URL
+        const fileUrl = `/uploads/${req.file.filename}`;
+
+        res.json({
+            url: fileUrl,
+            type: mediaType,
+            filename: req.file.originalname,
+            size: req.file.size,
+            mimetype: req.file.mimetype
+        });
+    } catch (error) {
+        console.error('Error uploading media:', error);
+        res.status(500).json({ message: 'Failed to upload media' });
     }
 };
 
@@ -253,5 +395,7 @@ module.exports = {
     getUnreadMessageCount,
     editMessage,
     deleteMessage,
-    reactToMessage
+    reactToMessage,
+    markAsRead,
+    uploadMedia
 };

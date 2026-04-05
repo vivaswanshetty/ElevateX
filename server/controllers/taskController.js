@@ -9,8 +9,16 @@ const { sendEmail, emailTemplates } = require('../services/emailService');
 // @access  Private
 const createTask = async (req, res) => {
     try {
-        const { title, category, sub, rewardId, coins, desc, deadline, files } = req.body;
-
+        const { title, category, sub, rewardId, coins, desc, deadline } = req.body;
+        
+        let attachments = [];
+        if (req.file) {
+            attachments.push(`/uploads/${req.file.filename}`);
+        } else if (req.body.files) {
+            // handle raw arrays of files if any from old api
+            attachments = Array.isArray(req.body.files) ? req.body.files : [req.body.files];
+        }
+        
         if (!title || !category || !sub || !coins || !desc || !deadline) {
             return res.status(400).json({ message: 'Please add all required fields' });
         }
@@ -28,7 +36,7 @@ const createTask = async (req, res) => {
             coins,
             description: desc,
             deadline,
-            attachments: files,
+            attachments,
             createdBy: req.user._id
         });
 

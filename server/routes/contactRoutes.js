@@ -28,11 +28,11 @@ router.post('/', contactLimiter, contactValidation, validate, async (req, res) =
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                         <h1 style="color: #9333EA;">Thank you for contacting us!</h1>
-                        <p>Hi ${name},</p>
+                        <p>Hi ${name.replace(/</g, '&lt;').replace(/>/g, '&gt;')},</p>
                         <p>We've received your message and will get back to you within 24 hours.</p>
                         <p><strong>Your message:</strong></p>
                         <div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">
-                            <p>${message.replace(/\n/g, '<br>')}</p>
+                            <p>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>
                         </div>
                         <p style="color: #666; font-size: 12px; text-align: center; margin-top: 40px;">
                             © 2025 ElevateX™. All rights reserved.

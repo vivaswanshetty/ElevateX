@@ -44,19 +44,16 @@ socketUtils.init(server);
 // Enable trust proxy for Render/Vercel (required for rate limiting behind a proxy)
 app.set('trust proxy', 1);
 
-// Security middleware
-// app.use(helmet({
-//     contentSecurityPolicy: false, // Disable for development; configure properly for production
-//     crossOriginEmbedderPolicy: false,
-// }));
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+}));
 
-// CORS configuration
+// CORS configuration — allowed origins from env or defaults
+const allowedOrigins = (process.env.CORS_ORIGINS || 'https://elevatex-one.vercel.app,http://localhost:5173,http://localhost:3000').split(',').map(s => s.trim());
 const corsOptions = {
-    origin: [
-        'https://elevatex-one.vercel.app',
-        'http://localhost:5173',
-        'http://localhost:3000',
-    ],
+    origin: allowedOrigins,
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -64,9 +61,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Body parsing middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Body parsing middleware — limit payload sizes to prevent abuse
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 // Serve static uploads
 const path = require('path');
@@ -77,7 +74,7 @@ app.use('/uploads', (req, res, next) => {
 }, express.static(path.join(__dirname, 'uploads')));
 
 // Sanitize data to prevent NoSQL injection
-// app.use(mongoSanitize());
+app.use(mongoSanitize());
 
 // Apply rate limiting to all API routes
 app.use('/api/', apiLimiter);
@@ -109,14 +106,14 @@ app.get('/', (req, res) => {
     });
 });
 
-// Global error handler
+// Global error handler — never leak stack traces in production
 app.use((err, req, res, next) => {
     console.error('Error:', err);
+    const isProd = process.env.NODE_ENV === 'production';
     res.status(err.status || 500).json({
         success: false,
-        message: err.message || 'Internal server error',
-        error: err.toString(), // TEMPORARY: For debugging production 500s
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+        message: isProd ? 'Internal server error' : (err.message || 'Internal server error'),
+        ...(isProd ? {} : { error: err.toString(), stack: err.stack }),
     });
 });
 

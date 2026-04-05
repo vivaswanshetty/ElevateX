@@ -4,12 +4,12 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { passwordResetRequestValidation, passwordResetValidation, validate } = require('../middleware/validation');
-const { authLimiter } = require('../middleware/rateLimiter');
+const { passwordResetLimiter } = require('../middleware/rateLimiter');
 
 // @route   POST /api/password-reset/request
 // @desc    Request password reset
 // @access  Public
-router.post('/request', authLimiter, passwordResetRequestValidation, validate, async (req, res) => {
+router.post('/request', passwordResetLimiter, passwordResetRequestValidation, validate, async (req, res) => {
     try {
         const { email } = req.body;
 

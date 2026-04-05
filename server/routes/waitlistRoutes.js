@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Waitlist = require('../models/Waitlist');
+const { waitlistValidation, validate } = require('../middleware/validation');
+const { writeLimiter } = require('../middleware/rateLimiter');
 
 // @desc    Join waitlist
 // @route   POST /api/waitlist
 // @access  Public
-router.post('/', async (req, res) => {
+router.post('/', writeLimiter, waitlistValidation, validate, async (req, res) => {
     try {
         const { email, source } = req.body;
 

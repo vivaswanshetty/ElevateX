@@ -19,10 +19,13 @@ const searchUsers = async (req, res) => {
             return res.json([]);
         }
 
+        // Escape regex special chars to prevent ReDoS
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
         const users = await User.find({
             $or: [
-                { name: { $regex: query, $options: 'i' } },
-                { email: { $regex: query, $options: 'i' } }
+                { name: { $regex: escaped, $options: 'i' } },
+                { email: { $regex: escaped, $options: 'i' } }
             ]
         })
             .select('name email avatar username')
@@ -100,7 +103,8 @@ const updateUserProfile = async (req, res) => {
         }
         
         if (req.file) {
-            user.avatar = `/uploads/${req.file.filename}`;
+            // Prefer the Cloudinary URL (persistent); fall back to local disk path
+            user.avatar = req.file.cloudinaryUrl || `/uploads/${req.file.filename}`;
         } else if (req.body.avatar !== undefined) {
             user.avatar = req.body.avatar;
         }
@@ -124,22 +128,21 @@ const updateUserProfile = async (req, res) => {
         const chatSettings = parseSafe(req.body.chatSettings);
         if (chatSettings) user.chatSettings = chatSettings;
 
-        if (req.body.coins !== undefined) {
-            user.coins = req.body.coins;
-        }
-        if (req.body.xp !== undefined) {
-            user.xp = req.body.xp;
-        }
-
         if (req.body.isPrivate !== undefined) {
             user.isPrivate = req.body.isPrivate;
         }
+
+        // coins and xp are NOT modifiable via profile update — they are only
+        // changed by server-side game logic (task completion, payments, etc.)
 
         if (req.body.pushToken !== undefined) {
             user.pushToken = req.body.pushToken;
         }
 
         if (req.body.password) {
+            if (req.body.password.length < 8) {
+                return res.status(400).json({ message: 'Password must be at least 8 characters' });
+            }
             user.password = req.body.password;
         }
 

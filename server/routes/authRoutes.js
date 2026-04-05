@@ -4,7 +4,7 @@ const { registerValidation, loginValidation, validate } = require('../middleware
 const { authLimiter } = require('../middleware/rateLimiter');
 const router = express.Router();
 
-router.post('/register', registerValidation, validate, registerUser);
+router.post('/register', authLimiter, registerValidation, validate, registerUser);
 router.post('/login', authLimiter, loginValidation, validate, authUser);
 
 module.exports = router;

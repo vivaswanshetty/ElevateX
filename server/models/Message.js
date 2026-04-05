@@ -13,23 +13,41 @@ const messageSchema = mongoose.Schema({
     },
     content: {
         type: String,
-        required: true
+        default: ''
     },
+    media: [{
+        url: {
+            type: String,
+            required: true
+        },
+        type: {
+            type: String,
+            enum: ['image', 'video', 'document', 'audio'],
+            required: true
+        },
+        filename: String,
+        size: Number, // in bytes
+        mimetype: String,
+        duration: Number // for audio/video in seconds
+    }],
     read: {
         type: Boolean,
         default: false
     },
+    readAt: Date,
     reactions: [{
         emoji: String,
-        user: {
+        users: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
-        }
+        }]
     }],
     edited: {
         type: Boolean,
         default: false
-    }
+    },
+    editedAt: Date,
+    deletedAt: Date
 }, {
     timestamps: true
 });
