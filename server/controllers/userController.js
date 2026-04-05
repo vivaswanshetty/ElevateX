@@ -73,7 +73,10 @@ const getProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
     try {
-        console.log('[updateProfile] req.body:', req.body ? Object.keys(req.body) : 'empty');
+        // Ensure req.body exists (multer may not populate it for some content types)
+        if (!req.body) req.body = {};
+        
+        console.log('[updateProfile] req.body:', Object.keys(req.body));
         console.log('[updateProfile] req.file:', req.file ? req.file.filename : 'none');
         
         const user = await User.findById(req.user._id);
