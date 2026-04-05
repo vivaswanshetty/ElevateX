@@ -145,27 +145,33 @@ const updateUserProfile = async (req, res) => {
         console.log('[updateProfile] Save successful');
 
         // Populate followRequests for the response
-        await updatedUser.populate('followRequests', 'name avatar');
+        try {
+            await updatedUser.populate('followRequests', 'name avatar');
+        } catch (popErr) {
+            console.error('[updateProfile] populate error (non-fatal):', popErr.message);
+        }
 
-        res.json({
+        const response = {
             _id: updatedUser._id,
-            name: updatedUser.name,
-            username: updatedUser.username,
-            email: updatedUser.email,
-            avatar: updatedUser.avatar,
-            bio: updatedUser.bio,
-            xp: updatedUser.xp,
-            coins: updatedUser.coins,
-            socials: updatedUser.socials,
-            work: updatedUser.work,
-            education: updatedUser.education,
-            isPrivate: updatedUser.isPrivate,
-            followRequests: updatedUser.followRequests,
-            essences: updatedUser.essences,
-            relics: updatedUser.relics,
-            chatSettings: updatedUser.chatSettings,
+            name: updatedUser.name || '',
+            username: updatedUser.username || '',
+            email: updatedUser.email || '',
+            avatar: updatedUser.avatar || '',
+            bio: updatedUser.bio || '',
+            xp: updatedUser.xp || 0,
+            coins: updatedUser.coins || 0,
+            socials: updatedUser.socials || {},
+            work: updatedUser.work || [],
+            education: updatedUser.education || [],
+            isPrivate: updatedUser.isPrivate || false,
+            followRequests: updatedUser.followRequests || [],
+            essences: updatedUser.essences || {},
+            relics: updatedUser.relics || [],
+            chatSettings: updatedUser.chatSettings || {},
             token: req.token,
-        });
+        };
+        console.log('[updateProfile] Sending response for user:', response._id);
+        res.json(response);
     } catch (error) {
         console.error('Error updating profile:', error);
         res.status(500).json({ message: error.message || 'Server error updating profile' });
