@@ -53,7 +53,15 @@ app.use(helmet({
 // CORS configuration — allowed origins from env or defaults
 const allowedOrigins = (process.env.CORS_ORIGINS || 'https://elevatex-one.vercel.app,http://localhost:5173,http://localhost:3000').split(',').map(s => s.trim());
 const corsOptions = {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        // Allow any Vercel preview URL for this project
+        if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
