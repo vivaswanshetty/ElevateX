@@ -4,7 +4,7 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
+// const mongoSanitize = require('express-mongo-sanitize'); // incompatible with Express 5 (req.query is read-only)
 const authRoutes = require('./routes/authRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const passwordResetRoutes = require('./routes/passwordResetRoutes');
@@ -74,7 +74,7 @@ app.use('/uploads', (req, res, next) => {
 }, express.static(path.join(__dirname, 'uploads')));
 
 // Sanitize data to prevent NoSQL injection
-app.use(mongoSanitize());
+// app.use(mongoSanitize()); // disabled — incompatible with Express 5
 
 // Apply rate limiting to all API routes
 app.use('/api/', apiLimiter);
