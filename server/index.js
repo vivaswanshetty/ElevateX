@@ -100,9 +100,9 @@ app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/duels', require('./routes/duelRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 // app.use('/api/matches', require('./routes/matchRoutes'));
-// app.use('/api/alchemy', require('./routes/alchemyRoutes'));
+app.use('/api/alchemy', require('./routes/alchemyRoutes'));
 app.use('/api/waitlist', require('./routes/waitlistRoutes'));
-// app.use('/api/seasons', require('./routes/seasonRoutes'));
+app.use('/api/seasons', require('./routes/seasonRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // Health check
