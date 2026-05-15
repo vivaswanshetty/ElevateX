@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import UserProfileModal from './UserProfileModal';
+import AuthModal from './AuthModal';
 import { formatTime } from '../utils/dateUtils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ const TaskDetailModal = ({ taskId, onClose }) => {
     const [chatMessage, setChatMessage] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [showAuthModal, setShowAuthModal] = useState(false);
     const [activeSection, setActiveSection] = useState('details'); // 'details' | 'applicants' | 'attachments'
     const chatEndRef = useRef(null);
     const taskDetailsRef = useRef(null);
@@ -221,6 +223,13 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                             onClick={e => e.stopPropagation()}
                             className="relative w-full max-w-6xl h-[92vh] bg-[#050505] rounded-[2rem] overflow-hidden shadow-2xl border border-white/8 flex flex-col md:flex-row"
                         >
+                            {/* Close button — top-right corner */}
+                            <button
+                                onClick={onClose}
+                                className="absolute top-5 right-5 z-50 p-2.5 bg-white/5 hover:bg-white/15 rounded-full text-gray-400 hover:text-white transition-all border border-white/10 backdrop-blur-sm"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
 
                             {loading ? (
                                 <div className="flex items-center justify-center w-full h-full gap-3">
@@ -239,7 +248,7 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                             {/* Decorative glow blob */}
                                             <div className={`absolute top-0 right-0 w-64 h-64 ${catStyle?.bg || 'bg-indigo-500/10'} rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none`} />
 
-                                            {/* Badges row — close button lives here */}
+                                            {/* Badges row */}
                                             <div className="flex flex-wrap items-center gap-2 mb-5 relative z-10">
                                                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${catStyle?.bg} ${catStyle?.text} ${catStyle?.border}`}>
                                                     <CatIcon className="w-3 h-3" /> {task.category}
@@ -263,13 +272,6 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                         <Sparkles className="w-3 h-3" /> New
                                                     </span>
                                                 )}
-                                                {/* Close button — right side of badges row, away from chat panel */}
-                                                <button
-                                                    onClick={onClose}
-                                                    className="ml-auto p-2 bg-white/5 hover:bg-white/15 rounded-full text-gray-400 hover:text-white transition-all border border-white/10"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
                                             </div>
 
                                             {/* Title */}
@@ -470,9 +472,12 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                                     )}
 
                                                     {!currentUser && task.status === 'Open' && (
-                                                        <div className="flex items-center gap-2 px-5 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm font-bold border border-white/10">
+                                                        <button
+                                                            onClick={() => setShowAuthModal(true)}
+                                                            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm font-bold border border-white/10 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                                                        >
                                                             <Lock className="w-4 h-4" /> Login to Apply
-                                                        </div>
+                                                        </button>
                                                     )}
                                                 </div>
                                             </div>
@@ -485,19 +490,19 @@ const TaskDetailModal = ({ taskId, onClose }) => {
                                     <div className="hidden md:flex flex-[2] flex-col bg-[#070707]">
                                         {/* Chat header */}
                                         <div className="px-5 py-4 border-b border-white/5 flex-shrink-0">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="p-2 rounded-xl" style={{ background: 'rgba(239,68,68,0.1)' }}>
-                                                        <MessageSquare className="w-4 h-4" style={{ color: '#ef4444' }} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-white text-sm">Discussion</h3>
-                                                        <p className="text-[10px] text-gray-500">{task.chat?.length || 0} messages</p>
-                                                    </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-2 rounded-xl" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                                                    <MessageSquare className="w-4 h-4" style={{ color: '#ef4444' }} />
                                                 </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                                    <span className="text-[10px] text-gray-500 font-medium">Live</span>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-bold text-white text-sm">Discussion</h3>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                                            <span className="text-[10px] text-gray-500 font-medium">Live</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500">{task.chat?.length || 0} messages</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -572,6 +577,7 @@ const TaskDetailModal = ({ taskId, onClose }) => {
             </AnimatePresence>
 
             <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+            <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </>
     );
 };

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import UserProfileModal from '../components/UserProfileModal';
 
 const SORT_OPTIONS = [
     { key: 'xp', label: 'XP', icon: Zap },
@@ -55,7 +56,7 @@ const RankChange = ({ change }) => {
 };
 
 // ─── Top 3 Podium ─────────────────────────────────────────────────────────────
-const Podium = ({ top3, sortBy, isSeasonMode }) => {
+const Podium = ({ top3, sortBy, isSeasonMode, onUserClick }) => {
     const order = [1, 0, 2];
     const heights = ['h-24', 'h-32', 'h-20'];
     const accentColors = ['#9ca3af', '#f59e0b', '#b47c3c'];
@@ -76,8 +77,9 @@ const Podium = ({ top3, sortBy, isSeasonMode }) => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: pos * 0.1 }}
-                        className="flex flex-col items-center gap-3"
+                        className="flex flex-col items-center gap-3 cursor-pointer"
                         style={{ width: '140px' }}
+                        onClick={() => onUserClick?.(user)}
                     >
                         <div className="relative">
                             <img
@@ -141,6 +143,7 @@ const Leaderboard = () => {
     const [loading, setLoading] = useState(true);
     const [sortBy, setSortBy] = useState('xp');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedUser, setSelectedUser] = useState(null);
 
     // Season data
     const [seasonData, setSeasonData] = useState(null);
@@ -348,7 +351,7 @@ const Leaderboard = () => {
                         </div>
                     ) : (
                         <>
-                            {!searchQuery && <Podium top3={top3} sortBy={sortBy} isSeasonMode={false} />}
+                            {!searchQuery && <Podium top3={top3} sortBy={sortBy} isSeasonMode={false} onUserClick={setSelectedUser} />}
                             {currentUser && myRank > 3 && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -373,11 +376,12 @@ const Leaderboard = () => {
                                             initial={{ opacity: 0, x: -8 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: idx * 0.04 }}
-                                            className="flex items-center gap-4 px-5 py-4 transition-all"
+                                            className="flex items-center gap-4 px-5 py-4 transition-all cursor-pointer"
                                             style={{
                                                 borderBottom: idx < (searchQuery ? filtered : rest).length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                                                 background: isMe ? 'rgba(239,68,68,0.04)' : 'transparent',
                                             }}
+                                            onClick={() => setSelectedUser(user)}
                                             onMouseEnter={e => { if (!isMe) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.background = isMe ? 'rgba(239,68,68,0.04)' : 'transparent'; }}
                                         >
@@ -425,7 +429,7 @@ const Leaderboard = () => {
                         </div>
                     ) : seasonData?.season && seasonFiltered.length > 0 ? (
                         <>
-                            {!searchQuery && <Podium top3={seasonTop3} sortBy="xp" isSeasonMode={true} />}
+                            {!searchQuery && <Podium top3={seasonTop3} sortBy="xp" isSeasonMode={true} onUserClick={setSelectedUser} />}
                             {currentUser && mySeasonRank > 3 && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -449,11 +453,12 @@ const Leaderboard = () => {
                                             initial={{ opacity: 0, x: -8 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: idx * 0.04 }}
-                                            className="flex items-center gap-4 px-5 py-4 transition-all"
+                                            className="flex items-center gap-4 px-5 py-4 transition-all cursor-pointer"
                                             style={{
                                                 borderBottom: idx < (searchQuery ? seasonFiltered : seasonRest).length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                                                 background: isMe ? 'rgba(239,68,68,0.04)' : 'transparent',
                                             }}
+                                            onClick={() => setSelectedUser(user)}
                                             onMouseEnter={e => { if (!isMe) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.background = isMe ? 'rgba(239,68,68,0.04)' : 'transparent'; }}
                                         >
@@ -497,6 +502,14 @@ const Leaderboard = () => {
                 )}
 
             </div>
+
+            {/* ── User Profile Modal ── */}
+            {selectedUser && (
+                <UserProfileModal
+                    user={selectedUser}
+                    onClose={() => setSelectedUser(null)}
+                />
+            )}
         </div>
     );
 };
