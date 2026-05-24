@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     Menu, X, Zap, LogOut, Trophy,
     Home, Compass, Swords, PlusCircle, Rss, Users, Bell, BellRing,
-    MessageSquare, Beaker, Globe, Crown, Search, Brain, BarChart2
+    MessageSquare, Beaker, Globe, Crown, Search, Brain, BarChart2, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';

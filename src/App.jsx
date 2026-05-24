@@ -23,6 +23,7 @@ import ChatSettings from './pages/ChatSettings';
 
 import SecurePayments from './pages/SecurePayments';
 import AIMatching from './pages/AIMatching';
+import AIAssistant from './pages/AIAssistant';
 import CommunityEvents from './pages/CommunityEvents';
 import MobileApp from './pages/MobileApp';
 import Subscription from './pages/Subscription';
@@ -43,8 +44,11 @@ import Analytics from './pages/Analytics';
 
 import ScrollToTop from './components/ScrollToTop';
 import CookieConsent from './components/CookieConsent';
+import FloatingAIAssistant from './components/FloatingAIAssistant';
+import { useRef } from 'react';
 
 function App() {
+    const constraintsRef = useRef(null);
     return (
         <AuthProvider>
             <DataProvider>
@@ -52,7 +56,7 @@ function App() {
                     <ScrollToTop />
                     <CookieConsent />
                     <SpeedInsights />
-                    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white overflow-x-hidden flex flex-col transition-colors duration-300">
+                    <div ref={constraintsRef} className="min-h-screen bg-white dark:bg-black text-black dark:text-white overflow-x-hidden flex flex-col transition-colors duration-300 relative">
                         <Navbar />
                         <main className="flex-grow">
                             <Routes>
@@ -77,6 +81,7 @@ function App() {
                                 <Route path="/future/payments" element={<SecurePayments />} />
                                 <Route path="/future/ai-matching" element={<AIMatching />} />
                                 <Route path="/aimatching" element={<AIMatching />} />
+                                <Route path="/assistant" element={<AIAssistant />} />
                                 <Route path="/future/community" element={<CommunityEvents />} />
                                 <Route path="/community" element={<CommunityEvents />} />
                                 <Route path="/future/mobile-app" element={<MobileApp />} />
@@ -97,6 +102,7 @@ function App() {
                         </main>
                         <SubscriptionTicker />
                         <Footer />
+                        <FloatingAIAssistant dragConstraints={constraintsRef} />
                     </div>
                 </Router>
             </DataProvider>

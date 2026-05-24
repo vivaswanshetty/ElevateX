@@ -39,9 +39,10 @@
   },
   "nodemonConfig": {
     "watch": [
-      "./"
+      "./",
+      ".env"
     ],
-    "ext": "js,json",
+    "ext": "js,json,env",
     "exec": "node index.js"
   }
 }

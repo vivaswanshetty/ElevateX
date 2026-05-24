@@ -54,4 +54,13 @@ const passwordResetLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-module.exports = { apiLimiter, authLimiter, contactLimiter, writeLimiter, uploadLimiter, passwordResetLimiter };
+// Strict rate limiter for AI Assistant queries (to control Gemini API costs)
+const assistantLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 20, // Max 20 queries per 5 minutes per IP
+    message: { success: false, message: 'You are chatting too fast. Please wait a moment before sending another query to Elev AI.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+module.exports = { apiLimiter, authLimiter, contactLimiter, writeLimiter, uploadLimiter, passwordResetLimiter, assistantLimiter };

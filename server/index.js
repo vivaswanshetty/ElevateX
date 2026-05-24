@@ -1,5 +1,6 @@
+const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -11,8 +12,6 @@ const passwordResetRoutes = require('./routes/passwordResetRoutes');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/rateLimiter');
 // const runMigrations = require('./scripts/migrateUsers');
-
-dotenv.config();
 
 // Connect to DB and run migrations
 connectDB().then(() => {
@@ -74,7 +73,6 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 // Serve static uploads
-const path = require('path');
 app.use('/uploads', (req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -104,6 +102,7 @@ app.use('/api/alchemy', require('./routes/alchemyRoutes'));
 app.use('/api/waitlist', require('./routes/waitlistRoutes'));
 app.use('/api/seasons', require('./routes/seasonRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
+app.use('/api/assistant', require('./routes/assistantRoutes'));
 
 // Health check
 app.get('/', (req, res) => {

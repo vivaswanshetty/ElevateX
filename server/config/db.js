@@ -7,6 +7,19 @@ const connectDB = async () => {
             process.exit(1);
         }
 
+        // Hook up connection monitoring event listeners
+        mongoose.connection.on('error', (err) => {
+            console.error(`❌ Mongoose connection error: ${err.message}`);
+        });
+
+        mongoose.connection.on('disconnected', () => {
+            console.warn('⚠️ Mongoose disconnected from MongoDB');
+        });
+
+        mongoose.connection.on('reconnected', () => {
+            console.log('✅ Mongoose reconnected to MongoDB');
+        });
+
         const conn = await mongoose.connect(process.env.MONGO_URI);
         console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
