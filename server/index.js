@@ -1,6 +1,13 @@
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Ensure uploads folder exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
 
 const express = require('express');
 const cors = require('cors');

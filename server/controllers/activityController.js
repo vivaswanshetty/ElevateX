@@ -88,6 +88,23 @@ const createActivity = async (recipientId, actorId, type, data = {}) => {
             ...data
         });
 
+        // Emit socket event for real-time notifications
+        try {
+            const { getIO } = require('../utils/socketUtils');
+            const io = getIO();
+            if (io) {
+                const populatedActivity = await Activity.findById(activity._id)
+                    .populate('actor', 'name avatar')
+                    .populate('post', 'content image')
+                    .populate('task', 'title')
+                    .populate('duel', 'type target');
+                
+                io.to(recipientId.toString()).emit('new_activity', populatedActivity);
+            }
+        } catch (socketErr) {
+            console.error('Socket notification emission failed:', socketErr.message);
+        }
+
         return activity;
     } catch (error) {
         console.error('Error creating activity:', error);

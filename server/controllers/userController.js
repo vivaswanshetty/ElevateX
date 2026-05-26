@@ -348,6 +348,10 @@ const acceptFollowRequest = async (req, res) => {
         // Create activity notification for requester
         await createActivity(requesterId, currentUser._id, 'follow_accept');
 
+        // Delete the original follow request activity
+        const Activity = require('../models/Activity');
+        await Activity.deleteOne({ recipient: currentUser._id, actor: requesterId, type: 'follow_request' });
+
         res.json({ message: 'Follow request accepted' });
     } catch (error) {
         console.error('Error accepting follow request:', error);
@@ -373,6 +377,10 @@ const rejectFollowRequest = async (req, res) => {
             id => id.toString() !== requesterId
         );
         await currentUser.save();
+
+        // Delete the original follow request activity
+        const Activity = require('../models/Activity');
+        await Activity.deleteOne({ recipient: currentUser._id, actor: requesterId, type: 'follow_request' });
 
         res.json({ message: 'Follow request rejected' });
     } catch (error) {

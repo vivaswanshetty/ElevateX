@@ -50,7 +50,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 25 * 1024 * 1024 } // 25MB — reduced from 200MB
+    limits: { fileSize: 200 * 1024 * 1024 } // 200MB — restored
 });
 
 router.post('/', protect, writeLimiter, messageValidation, validate, sendMessage);

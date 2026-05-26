@@ -175,11 +175,11 @@ const commentValidation = [
 // ── Messages ──────────────────────────────────────────
 
 const messageValidation = [
-    body('receiverId')
+    body('recipientId')
         .notEmpty().withMessage('Receiver is required')
         .isMongoId().withMessage('Invalid receiver ID'),
 
-    body('text')
+    body('content')
         .optional()
         .isLength({ max: 5000 }).withMessage('Message must be under 5000 characters'),
 ];
