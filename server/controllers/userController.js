@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { createActivity } = require('./activityController');
 
 // @desc    Get all users (for leaderboard)
@@ -303,6 +304,13 @@ const followUser = async (req, res) => {
         userToFollow.followers.push(req.user._id);
         await userToFollow.save();
 
+        // Create Follow document
+        await Follow.findOneAndUpdate(
+            { follower: req.user._id, following: req.params.id },
+            { follower: req.user._id, following: req.params.id },
+            { upsert: true, new: true }
+        );
+
         // Create activity notification
         await createActivity(req.params.id, req.user._id, 'follow');
 
@@ -348,6 +356,13 @@ const acceptFollowRequest = async (req, res) => {
         // Add to following (requester)
         requester.following.push(currentUser._id);
         await requester.save();
+
+        // Create Follow document
+        await Follow.findOneAndUpdate(
+            { follower: requesterId, following: currentUser._id },
+            { follower: requesterId, following: currentUser._id },
+            { upsert: true, new: true }
+        );
 
         // Create activity notification for requester
         await createActivity(requesterId, currentUser._id, 'follow_accept');
@@ -439,6 +454,9 @@ const unfollowUser = async (req, res) => {
         );
         await userToUnfollow.save();
 
+        // Delete Follow document
+        await Follow.deleteOne({ follower: req.user._id, following: req.params.id });
+
         res.json({ message: 'User unfollowed successfully', status: 'unfollowed' });
     } catch (error) {
         console.error('Error unfollowing user:', error);
@@ -468,11 +486,47 @@ const getUserById = async (req, res) => {
 // @access  Public
 const getUserFollowers = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).populate('followers', 'name avatar xp');
+        const user = await User.findById(req.params.id).populate('followers', 'name avatar xp createdAt');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user.followers);
+
+        // Get all Follow relationships where following is this user
+        const follows = await Follow.find({ following: req.params.id });
+        const followMap = {};
+        follows.forEach(f => {
+            followMap[f.follower.toString()] = f.createdAt;
+        });
+
+        // Format followers list and self-heal missing relationships
+        const result = [];
+        for (const follower of user.followers) {
+            let followedAt = followMap[follower._id.toString()];
+            if (!followedAt) {
+                // Self-healing: create the missing relationship in the background
+                // Use follower's createdAt date or a plausible fallback as the follow date
+                const fallbackDate = follower.createdAt || new Date();
+                try {
+                    await Follow.create({
+                        follower: follower._id,
+                        following: user._id,
+                        createdAt: fallbackDate
+                    });
+                } catch (e) {
+                    // Ignore index duplicate errors if another process created it
+                }
+                followedAt = fallbackDate;
+            }
+            result.push({
+                _id: follower._id,
+                name: follower.name,
+                avatar: follower.avatar,
+                xp: follower.xp,
+                followedAt: followedAt
+            });
+        }
+
+        res.json(result);
     } catch (error) {
         console.error('Error fetching followers:', error);
         res.status(500).json({ message: 'Failed to fetch followers' });
@@ -484,14 +538,90 @@ const getUserFollowers = async (req, res) => {
 // @access  Public
 const getUserFollowing = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).populate('following', 'name avatar xp');
+        const user = await User.findById(req.params.id).populate('following', 'name avatar xp createdAt');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user.following);
+
+        // Get all Follow relationships where follower is this user
+        const follows = await Follow.find({ follower: req.params.id });
+        const followMap = {};
+        follows.forEach(f => {
+            followMap[f.following.toString()] = f.createdAt;
+        });
+
+        // Format following list and self-heal missing relationships
+        const result = [];
+        for (const followedUser of user.following) {
+            let followedAt = followMap[followedUser._id.toString()];
+            if (!followedAt) {
+                // Self-healing: create the missing relationship in the background
+                const fallbackDate = user.createdAt || new Date();
+                try {
+                    await Follow.create({
+                        follower: user._id,
+                        following: followedUser._id,
+                        createdAt: fallbackDate
+                    });
+                } catch (e) {
+                    // Ignore index duplicate errors
+                }
+                followedAt = fallbackDate;
+            }
+            result.push({
+                _id: followedUser._id,
+                name: followedUser.name,
+                avatar: followedUser.avatar,
+                xp: followedUser.xp,
+                followedAt: followedAt
+            });
+        }
+
+        res.json(result);
     } catch (error) {
         console.error('Error fetching following:', error);
         res.status(500).json({ message: 'Failed to fetch following' });
+    }
+};
+
+// @desc    Remove a follower (force them to unfollow you)
+// @route   PUT /api/users/:id/remove-follower
+// @access  Private
+const removeFollower = async (req, res) => {
+    try {
+        const followerId = req.params.id; // User who is following us
+        const currentUser = await User.findById(req.user._id); // Us
+        const follower = await User.findById(followerId); // Them
+
+        if (!follower) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if the user is actually following us
+        const isFollowing = currentUser.followers.includes(followerId);
+        if (!isFollowing) {
+            return res.status(400).json({ message: 'User is not following you' });
+        }
+
+        // Remove follower from our followers array
+        currentUser.followers = currentUser.followers.filter(
+            id => id.toString() !== followerId
+        );
+        await currentUser.save();
+
+        // Remove us from their following array
+        follower.following = follower.following.filter(
+            id => id.toString() !== req.user._id.toString()
+        );
+        await follower.save();
+
+        // Delete Follow relationship record
+        await Follow.deleteOne({ follower: followerId, following: req.user._id });
+
+        res.json({ message: 'Follower removed successfully' });
+    } catch (error) {
+        console.error('Error removing follower:', error);
+        res.status(500).json({ message: 'Failed to remove follower' });
     }
 };
 
@@ -530,5 +660,6 @@ module.exports = {
     rejectFollowRequest,
     getUserFollowers,
     getUserFollowing,
+    removeFollower,
     getLeaderboard
 };

@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUsers, searchUsers, getUserById, getProfile, updateUserProfile, changePassword, deleteAccount, followUser, unfollowUser, acceptFollowRequest, rejectFollowRequest, getUserFollowers, getUserFollowing, getLeaderboard } = require('../controllers/userController');
+const { getUsers, searchUsers, getUserById, getProfile, updateUserProfile, changePassword, deleteAccount, followUser, unfollowUser, acceptFollowRequest, rejectFollowRequest, getUserFollowers, getUserFollowing, removeFollower, getLeaderboard } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const { avatarUpload } = require('../middleware/cloudinaryUpload');
 const { profileUpdateValidation, searchValidation, changePasswordValidation, mongoIdParam, validate } = require('../middleware/validation');
@@ -22,5 +22,6 @@ router.put('/:id/follow', protect, writeLimiter, mongoIdParam(), validate, follo
 router.put('/:id/unfollow', protect, writeLimiter, mongoIdParam(), validate, unfollowUser);
 router.put('/:id/accept-request', protect, mongoIdParam(), validate, acceptFollowRequest);
 router.put('/:id/reject-request', protect, mongoIdParam(), validate, rejectFollowRequest);
+router.put('/:id/remove-follower', protect, mongoIdParam(), validate, removeFollower);
 
 module.exports = router;
