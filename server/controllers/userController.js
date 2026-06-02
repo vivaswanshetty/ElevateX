@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Follow = require('../models/Follow');
 const { createActivity } = require('./activityController');
+const { sendPushNotification } = require('../utils/pushUtils');
 
 // @desc    Get all users (for leaderboard)
 // @route   GET /api/users
@@ -292,6 +293,16 @@ const followUser = async (req, res) => {
             // Create activity notification for request
             await createActivity(req.params.id, req.user._id, 'follow_request');
 
+            // Send push notification
+            if (userToFollow.pushToken) {
+                await sendPushNotification(
+                    userToFollow.pushToken,
+                    'New Follow Request',
+                    `${currentUser.name} requested to follow you.`,
+                    { type: 'follow_request', senderId: currentUser._id.toString() }
+                );
+            }
+
             return res.json({ message: 'Follow request sent', status: 'requested' });
         }
 
@@ -313,6 +324,16 @@ const followUser = async (req, res) => {
 
         // Create activity notification
         await createActivity(req.params.id, req.user._id, 'follow');
+
+        // Send push notification
+        if (userToFollow.pushToken) {
+            await sendPushNotification(
+                userToFollow.pushToken,
+                'New Follower',
+                `${currentUser.name} started following you.`,
+                { type: 'follow', senderId: currentUser._id.toString() }
+            );
+        }
 
         res.json({ message: 'User followed successfully', status: 'following' });
     } catch (error) {
@@ -366,6 +387,16 @@ const acceptFollowRequest = async (req, res) => {
 
         // Create activity notification for requester
         await createActivity(requesterId, currentUser._id, 'follow_accept');
+
+        // Send push notification
+        if (requester.pushToken) {
+            await sendPushNotification(
+                requester.pushToken,
+                'Follow Request Accepted',
+                `${currentUser.name} accepted your follow request.`,
+                { type: 'follow_accept', senderId: currentUser._id.toString() }
+            );
+        }
 
         // Delete the original follow request activity
         const Activity = require('../models/Activity');
