@@ -13,19 +13,33 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password, termsAccepted } = req.body;
+        const { name, username, email, password, termsAccepted } = req.body;
 
-        const userExists = await User.findOne({ email });
-
-        if (userExists) {
+        // Check if user already exists with this email
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
             return res.status(400).json({
                 success: false,
                 message: 'User already exists with this email'
             });
         }
 
+        // Check if user already exists with this username
+        if (username) {
+            const usernameExists = await User.findOne({
+                username: { $regex: new RegExp(`^${username}$`, 'i') }
+            });
+            if (usernameExists) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Username is already taken'
+                });
+            }
+        }
+
         const user = await User.create({
             name,
+            username,
             email,
             password,
             coins: 100, // Starting coins
@@ -47,6 +61,7 @@ const registerUser = async (req, res) => {
                 success: true,
                 _id: user._id,
                 name: user.name,
+                username: user.username,
                 email: user.email,
                 avatar: user.avatar,
                 coins: user.coins,
@@ -72,14 +87,22 @@ const registerUser = async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 const authUser = async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password } = req.body; // 'email' field actually contains email or username
 
-    const user = await User.findOne({ email });
+    const loginInput = email.trim();
+    // Query either by email (case-insensitive) or username (case-insensitive)
+    const user = await User.findOne({
+        $or: [
+            { email: loginInput.toLowerCase() },
+            { username: { $regex: new RegExp(`^${loginInput}$`, 'i') } }
+        ]
+    });
 
     if (user && (await user.matchPassword(password))) {
         res.json({
             _id: user._id,
             name: user.name,
+            username: user.username,
             email: user.email,
             avatar: user.avatar,
             xp: user.xp,
@@ -88,7 +111,7 @@ const authUser = async (req, res) => {
             token: generateToken(user._id),
         });
     } else {
-        res.status(401).json({ message: 'Invalid email or password' });
+        res.status(401).json({ message: 'Invalid email/username or password' });
     }
 };
 
