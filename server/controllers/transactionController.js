@@ -16,7 +16,7 @@ const getTransactions = async (req, res) => {
 // @route   POST /api/transactions/deposit
 // @access  Private
 const deposit = async (req, res) => {
-    const { amount } = req.body;
+    const { amount, description } = req.body;
     const numAmount = Number(amount);
 
     if (!Number.isFinite(numAmount) || numAmount < 1 || numAmount > 100000) {
@@ -31,7 +31,7 @@ const deposit = async (req, res) => {
         user: req.user._id,
         type: 'deposit',
         amount: numAmount,
-        description: 'Deposit'
+        description: description || 'Deposit'
     });
 
     res.json({ coins: user.coins });
@@ -41,7 +41,7 @@ const deposit = async (req, res) => {
 // @route   POST /api/transactions/withdraw
 // @access  Private
 const withdraw = async (req, res) => {
-    const { amount } = req.body;
+    const { amount, description } = req.body;
     const numAmount = Number(amount);
 
     if (!Number.isFinite(numAmount) || numAmount < 1 || numAmount > 100000) {
@@ -59,7 +59,7 @@ const withdraw = async (req, res) => {
         user: req.user._id,
         type: 'withdraw',
         amount: numAmount,
-        description: 'Withdraw'
+        description: description || 'Withdraw'
     });
 
     res.json({ coins: user.coins });

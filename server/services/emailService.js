@@ -100,7 +100,7 @@ const emailTemplates = {
                     </a>
                 </div>
                 <p style="color: #666; font-size: 12px; text-align: center; margin-top: 40px;">
-                    © 2025 ElevateX™. All rights reserved.
+                    © 2026 ElevateX™. All rights reserved.
                 </p>
             </div>
         `,
@@ -182,35 +182,59 @@ const emailTemplates = {
         text: `New Contact Form\n\nFrom: ${senderName} (${senderEmail})\nSubject: ${subject}\n\nMessage:\n${message}`,
     }),
 
-    taskAssigned: (name, taskTitle, taskId) => ({
+    taskAssigned: (name, taskTitle, creatorName, creatorEmail) => ({
         subject: `You've been assigned a task: ${taskTitle}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h1 style="color: #9333EA; text-align: center;">New Task Assignment! 🎯</h1>
                 <p>Hi ${name},</p>
-                <p>Congratulations! You've been assigned to complete the task "${taskTitle}".</p>
+                <p>Congratulations! You've been assigned to complete the task "${taskTitle}" by <strong>${creatorName}</strong>.</p>
+                <p>You can contact them directly to start working: <a href="mailto:${creatorEmail}">${creatorEmail}</a></p>
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/explore" 
+                    <a href="mailto:${creatorEmail}" 
                        style="background: linear-gradient(to right, #9333EA, #EC4899); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                        View Task
+                        Email Creator
                     </a>
                 </div>
                 <p>Good luck! Make sure to submit your work before the deadline.</p>
                 <p style="color: #666; font-size: 12px; text-align: center; margin-top: 40px;">
-                    © 2025 ElevateX™. All rights reserved.
+                    © 2026 ElevateX™. All rights reserved.
                 </p>
             </div>
         `,
-        text: `New Task Assignment!\n\nHi ${name},\n\nYou've been assigned: ${taskTitle}`,
+        text: `New Task Assignment!\n\nHi ${name},\n\nYou've been assigned: "${taskTitle}". Contact the creator at ${creatorEmail}`,
     }),
 
-    taskApplicationReceived: (creatorName, applicantName, taskTitle) => ({
+    taskMatchCreator: (creatorName, helperName, helperEmail, taskTitle) => ({
+        subject: `Helper Assigned for: ${taskTitle} 🤝`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #9333EA; text-align: center;">Helper Assigned!</h1>
+                <p>Hi ${creatorName},</p>
+                <p>You have assigned <strong>${helperName}</strong> to your task <strong>"${taskTitle}"</strong>.</p>
+                <p>Reach out to them directly to coordinate details: <a href="mailto:${helperEmail}">${helperEmail}</a></p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="mailto:${helperEmail}" 
+                       style="background: linear-gradient(to right, #9333EA, #EC4899); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block;">
+                        Email Helper
+                    </a>
+                </div>
+                <p style="color: #666; font-size: 12px; text-align: center; margin-top: 40px;">
+                    © 2026 ElevateX™. All rights reserved.
+                </p>
+            </div>
+        `,
+        text: `Helper Assigned!\n\nHi ${creatorName},\n\nYou have assigned ${helperName} to your task "${taskTitle}". Contact them at ${helperEmail}`,
+    }),
+
+
+    taskApplicationReceived: (creatorName, applicantName, applicantEmail, taskTitle) => ({
         subject: `New Application for: ${taskTitle} 🚀`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h1 style="color: #9333EA; text-align: center;">New Task Application!</h1>
                 <p>Hi ${creatorName},</p>
-                <p><strong>${applicantName}</strong> has just applied for your task <strong>"${taskTitle}"</strong>.</p>
+                <p><strong>${applicantName}</strong> (${applicantEmail}) has just applied for your task <strong>"${taskTitle}"</strong>.</p>
                 <p>Review their profile and application to decide if they are the right fit.</p>
                 <div style="text-align: center; margin: 30px 0;">
                     <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/profile" 
@@ -223,7 +247,7 @@ const emailTemplates = {
                 </p>
             </div>
         `,
-        text: `New Application!\n\nHi ${creatorName},\n\n${applicantName} has applied for your task "${taskTitle}".\n\nLog in to review.`,
+        text: `New Application!\n\nHi ${creatorName},\n\n${applicantName} (${applicantEmail}) has applied for your task "${taskTitle}".\n\nLog in to review.`,
     }),
 
     newTaskAvailable: (userName, taskTitle, reward) => ({
@@ -242,7 +266,7 @@ const emailTemplates = {
                     </a>
                 </div>
                 <p style="color: #666; font-size: 12px; text-align: center; margin-top: 40px;">
-                    © 2025 ElevateX™. All rights reserved.
+                    © 2026 ElevateX™. All rights reserved.
                 </p>
             </div>
         `,

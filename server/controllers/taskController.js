@@ -94,7 +94,8 @@ const getTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
     const task = await Task.findById(req.params.id)
         .populate('createdBy', 'name avatar email')
-        .populate('applicants.user', 'name avatar');
+        .populate('applicants.user', 'name avatar')
+        .populate('assignedTo', 'name avatar email');
 
     if (task) {
         res.json(task);
@@ -178,8 +179,8 @@ const applyForTask = async (req, res) => {
 
         // Notify task creator via email
         try {
-            const applicant = await User.findById(req.user._id).select('name');
-            const emailData = emailTemplates.taskApplicationReceived(task.createdBy.name, applicant.name, task.title);
+            const applicant = await User.findById(req.user._id).select('name email');
+            const emailData = emailTemplates.taskApplicationReceived(task.createdBy.name, applicant.name, applicant.email, task.title);
 
             // Send email asynchronously
             sendEmail({
@@ -213,6 +214,16 @@ const assignTask = async (req, res) => {
 
         task.assignedTo = applicantId;
         task.status = 'In Progress';
+
+        // Update applicant statuses
+        task.applicants.forEach(app => {
+            if (app.user.toString() === applicantId.toString()) {
+                app.status = 'Accepted';
+            } else {
+                app.status = 'Rejected';
+            }
+        });
+
         await task.save();
 
         // Create in-app notification for assigned user
@@ -228,7 +239,41 @@ const assignTask = async (req, res) => {
             console.error('Failed to create task assignment notification:', error);
         }
 
-        res.json(task);
+        // Send email notifications to both parties disclosing contact details
+        try {
+            const helper = await User.findById(applicantId).select('name email');
+            const creator = await User.findById(req.user._id).select('name email');
+
+            if (helper && creator) {
+                // Email helper (assigned user)
+                const helperEmailData = emailTemplates.taskAssigned(helper.name, task.title, creator.name, creator.email);
+                sendEmail({
+                    to: helper.email,
+                    subject: helperEmailData.subject,
+                    html: helperEmailData.html,
+                    text: helperEmailData.text
+                }).catch(err => console.error('Failed sending assigned email to helper', err));
+
+                // Email creator
+                const creatorEmailData = emailTemplates.taskMatchCreator(creator.name, helper.name, helper.email, task.title);
+                sendEmail({
+                    to: creator.email,
+                    subject: creatorEmailData.subject,
+                    html: creatorEmailData.html,
+                    text: creatorEmailData.text
+                }).catch(err => console.error('Failed sending match email to creator', err));
+            }
+        } catch (error) {
+            console.error('Failed to send task match emails:', error);
+        }
+
+        // Populate and return updated task details
+        const updatedTask = await Task.findById(task._id)
+            .populate('createdBy', 'name avatar email')
+            .populate('applicants.user', 'name avatar')
+            .populate('assignedTo', 'name avatar email');
+
+        res.json(updatedTask);
     } else {
         res.status(404).json({ message: 'Task not found' });
     }
@@ -346,7 +391,13 @@ const completeTask = async (req, res) => {
             }
         }
 
-        res.json(task);
+        // Populate and return updated task details
+        const updatedTask = await Task.findById(task._id)
+            .populate('createdBy', 'name avatar email')
+            .populate('applicants.user', 'name avatar')
+            .populate('assignedTo', 'name avatar email');
+
+        res.json(updatedTask);
     } else {
         res.status(404).json({ message: 'Task not found' });
     }
