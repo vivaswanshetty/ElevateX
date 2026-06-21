@@ -26,8 +26,9 @@ const registerUser = async (req, res) => {
 
         // Check if user already exists with this username
         if (username) {
+            const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const usernameExists = await User.findOne({
-                username: { $regex: new RegExp(`^${username}$`, 'i') }
+                username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') }
             });
             if (usernameExists) {
                 return res.status(400).json({
@@ -90,13 +91,20 @@ const authUser = async (req, res) => {
     const { email, password } = req.body; // 'email' field actually contains email or username
 
     const loginInput = email.trim();
-    // Query either by email (case-insensitive) or username (case-insensitive)
-    const user = await User.findOne({
-        $or: [
-            { email: loginInput.toLowerCase() },
-            { username: { $regex: new RegExp(`^${loginInput}$`, 'i') } }
-        ]
-    });
+    let user;
+
+    if (loginInput.includes('@')) {
+        // It's an email, normalize it using validator to match registration format
+        const validator = require('validator');
+        const normalizedEmail = validator.normalizeEmail(loginInput) || loginInput.toLowerCase();
+        user = await User.findOne({ email: normalizedEmail });
+    } else {
+        // It's a username, escape regex special characters and query case-insensitively
+        const escapedUsername = loginInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        user = await User.findOne({
+            username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') }
+        });
+    }
 
     if (user && (await user.matchPassword(password))) {
         res.json({
