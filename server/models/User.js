@@ -121,7 +121,7 @@ userSchema.methods.generatePasswordResetToken = function () {
 userSchema.pre('save', async function () {
     // Generate unique avatar if not provided
     if (!this.avatar || this.avatar === '') {
-        this.avatar = `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(this.email)}`;
+        this.avatar = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(this.email)}`;
     }
 
     // Hash password if it's modified
