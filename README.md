@@ -1,6 +1,6 @@
 ElevateX – The Skill Market for the New Gen*
 
-ElevateX is a gamified micro-skill marketplace that connects people who need quvick help with those who can deliver — for fun, XP, or micro-payments. Built with the MERN stack (MongoDB, Express, React, Node.js).
+ElevateX is a gamified micro-skill marketplace that connects people who need quick help with those who can deliver — for fun, XP, or micro-payments. Built with the MERN stack (MongoDB, Express, React, Node.js).
 
  🌟 Features:
 
