@@ -6,7 +6,9 @@ const userSchema = mongoose.Schema({
     name: { type: String, required: true },
     username: { type: String, unique: true, sparse: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String }, // Optional for Google & Guest logins
+    googleId: { type: String, unique: true, sparse: true }, // For Google Sign-In
+    isGuest: { type: Boolean, default: false }, // For Guest mode
     avatar: { type: String, default: '' },
     bio: { type: String, default: '' },
     xp: { type: Number, default: 0 },
@@ -124,8 +126,8 @@ userSchema.pre('save', async function () {
         this.avatar = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(this.email)}`;
     }
 
-    // Hash password if it's modified
-    if (this.isModified('password')) {
+    // Hash password if it's provided and modified
+    if (this.password && this.isModified('password')) {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
     }

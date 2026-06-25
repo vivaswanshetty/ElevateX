@@ -10,7 +10,8 @@ const {
     getUserInteractions,
     deleteComment,
     getPostById,
-    getPostLikes
+    getPostLikes,
+    getSuggestedPosts
 } = require('../controllers/postController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -22,6 +23,7 @@ router.route('/')
     .post(protect, uploadLimiter, upload.single('image'), postValidation, validate, createPost)
     .get(getPosts);
 router.get('/feed', protect, getFeed);
+router.get('/suggested', protect, getSuggestedPosts);
 router.get('/interactions', protect, getUserInteractions);
 router.get('/user/:userId', getUserPosts);
 router.get('/:id/likes', mongoIdParam(), validate, getPostLikes);

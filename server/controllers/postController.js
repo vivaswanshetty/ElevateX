@@ -35,13 +35,23 @@ const createPost = async (req, res) => {
 // @access  Public
 const getPosts = async (req, res) => {
     try {
-        const posts = await Post.find({})
+        const { sort } = req.query;
+
+        let posts = await Post.find({})
             .populate('author', 'name avatar')
             .populate('comments.user', 'name avatar')
             .sort({ createdAt: -1 })
-            .limit(50);
+            .limit(100);
 
-        res.json(posts);
+        if (sort === 'trending') {
+            posts.sort((a, b) => {
+                const scoreA = (a.likes?.length || 0) + (a.comments?.length || 0);
+                const scoreB = (b.likes?.length || 0) + (b.comments?.length || 0);
+                return scoreB - scoreA;
+            });
+        }
+
+        res.json(posts.slice(0, 50));
     } catch (error) {
         console.error('Error fetching posts:', error);
         res.status(500).json({ message: 'Failed to fetch posts' });
@@ -286,6 +296,48 @@ const getPostLikes = async (req, res) => {
     }
 };
 
+// @desc    Get suggested posts (popular posts from others)
+// @route   GET /api/posts/suggested
+// @access  Private
+const getSuggestedPosts = async (req, res) => {
+    try {
+        const currentUserId = req.user ? req.user._id : null;
+        
+        let query = {};
+        if (currentUserId) {
+            query.author = { $ne: currentUserId };
+        }
+
+        let posts = await Post.find(query)
+            .populate('author', 'name avatar')
+            .populate('comments.user', 'name avatar')
+            .limit(40);
+
+        // Sort by activity (likes + comments)
+        posts.sort((a, b) => {
+            const scoreA = (a.likes?.length || 0) + (a.comments?.length || 0);
+            const scoreB = (b.likes?.length || 0) + (b.comments?.length || 0);
+            return scoreB - scoreA;
+        });
+
+        let suggested = posts.slice(0, 6);
+
+        // Fallback to recent posts if no suggested posts are found
+        if (suggested.length === 0) {
+            suggested = await Post.find({})
+                .populate('author', 'name avatar')
+                .populate('comments.user', 'name avatar')
+                .sort({ createdAt: -1 })
+                .limit(5);
+        }
+
+        res.json(suggested);
+    } catch (error) {
+        console.error('Error fetching suggested posts:', error);
+        res.status(500).json({ message: 'Failed to fetch suggested posts' });
+    }
+};
+
 module.exports = {
     createPost,
     getPosts,
@@ -297,5 +349,6 @@ module.exports = {
     getUserInteractions,
     deleteComment,
     getPostById,
-    getPostLikes
+    getPostLikes,
+    getSuggestedPosts
 };
